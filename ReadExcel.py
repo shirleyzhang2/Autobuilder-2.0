@@ -5,6 +5,19 @@ from openpyxl import *
 from openpyxl.utils.cell import get_column_letter, column_index_from_string
 import string
 
+class Tower:
+    def __init__(self, number, member_mat, rod_mat, floor_plans, floor_heights, col_props, bracing_types, floor_masses, floor_bracing_types, fabi):
+        self.number = number
+        self.member_mat = member_mat
+        self.rod_mat = rod_mat
+        self.floor_plans = floor_plans
+        self.floor_heights = floor_heights
+        self.col_props = col_props
+        self.bracing_types = bracing_types
+        self.floor_masses = floor_masses
+        self.floor_bracing_types = floor_bracing_types
+        self.fabi = fabi
+
 ##########get excel index############
 def get_excel_indices(ws, index_headings_col, index_values_col, index_start_row):
     excel_index = {}
@@ -43,19 +56,6 @@ def get_properties(ws,headings_start_col, values_start_col, start_row):
         current_value_col = get_column_letter(column_index_from_string(current_value_col)+3)
     return parameter_type
 
-
-class Tower:
-    def __init__(self, number, member_mat, rod_mat, floor_plans, floor_heights, col_props, bracing_types, floor_masses, floor_bracing_types):
-        self.number = number
-        self.member_mat = member_mat
-        self.rod_mat = rod_mat
-        self.floor_plans = floor_plans
-        self.floor_heights = floor_heights
-        self.col_props = col_props
-        self.bracing_types = bracing_types
-        self.floor_masses = floor_masses
-        self.floor_bracing_types = floor_bracing_types
-
 #Outputs a list containing tower objects representing each tower to be built
 def read_input_table(wb,excel_index):
     #Read in the top value in the sheet
@@ -70,7 +70,7 @@ def read_input_table(wb,excel_index):
     cur_tower_num = 1
     while cur_tower_num <= total_towers:
         #create tower object
-        cur_tower = Tower(0,0,0,0,0,0,0,0,0)
+        cur_tower = Tower(0,0,0,0,0,0,0,0,0,0)
         #read member material
         member_mat = ws_input['B'+str(cur_tower_row + 1)].value
         cur_tower.member_mat = member_mat
@@ -195,10 +195,10 @@ def get_floor_or_bracing(ws,headings_col,section_col,start_node_col,end_node_col
     return bracing_index
 
 '''
-TESTING
+Testing 
 
 wb = load_workbook('SetupAB.xlsx')
-ws_index = wb.get_sheet_by_name('Index')
+ws_index = wb['Index']
 ExcelIndex = get_excel_indices(ws_index, 'A', 'B', 2)
 
 InputTable = ExcelIndex['Input table sheet']
@@ -210,16 +210,16 @@ Materials = ExcelIndex['Materials sheet']
 InputTableOffset = ExcelIndex['Input table offset']
 PropertiesStartRow = ExcelIndex['Properties start row']
 
-testing
+
 for keys,values in ExcelIndex.items():
     print(keys)
     print(values)
 
 
-ws_section = wb.get_sheet_by_name('Section Properties')
+ws_section = wb['Section Properties']
 SectionProperties = get_properties(ws_section, 'A', 'B',4) #or use ExcelIndex
 
-ws_materials = wb.get_sheet_by_name('Materials')
+ws_materials = wb['Materials']
 Materials = get_properties(ws_materials,'A','B',4)
 
 
@@ -232,12 +232,12 @@ for keys,values in SectionProperties.items():
 #    print(values)
 
 
-ws_nodes = wb.get_sheet_by_name('Bracing')
+ws_nodes = wb['Bracing']
 Nodes = get_node_info(ws_nodes,'A','B','C',4)
 
 
-ws_bracing = wb.get_sheet_by_name('Bracing')
-ws_floor_plans = wb.get_sheet_by_name('Floor Plans')
+ws_bracing = wb['Bracing']
+ws_floor_plans = wb['Floor Plans']
 Bracing = get_floor_or_bracing(ws_floor_plans,'D','E','F','G',4)
 
 for keys,values in Bracing.items():
@@ -260,6 +260,5 @@ for tower in AllTowers:
     print(tower.bracing_types)
     print(tower.floor_masses)
     print(tower.floor_bracing_types)
-
 
 '''
