@@ -6,8 +6,9 @@ from openpyxl.utils.cell import get_column_letter, column_index_from_string
 import string
 
 ##########get excel index############
-def get_excel_indices(ws, index_headings_col, index_values_col, index_start_row):
+def get_excel_indices(wb, index_headings_col, index_values_col, index_start_row):
     excel_index = {}
+    ws = wb.get_sheet_by_name('Index')
     current_row = index_start_row
     while ws[index_headings_col + str(current_row)].value is not None:
         index_heading = ws[index_headings_col + str(current_row)].value
@@ -24,7 +25,7 @@ def get_properties(wb,excel_index,parameter):
     start_row = excel_index['Properties start row']
     if parameter == 'Material':
         ws = wb.get_sheet_by_name('Materials')
-    if parameter == 'Section':
+    elif parameter == 'Section':
         ws = wb.get_sheet_by_name('Section Properties')
     else:
         print('Input should be either "Material" or"Section"')
@@ -182,7 +183,11 @@ def get_node_info(wb, excel_index,parameter):
         current_row = current_row + 1
     return node_index
 
-def get_floor_or_bracing(ws,excel_index,parameter):
+def get_floor_or_bracing(wb,excel_index,parameter):
+
+    SectionProperties = get_properties(wb,ExcelIndex,'Section')
+    Nodes = get_node_info(wb,ExcelIndex,'Bracing')
+
     headings_col = excel_index['Floor or bracing name col']
     section_col = excel_index['Floor or bracing section col']
     start_node_col = excel_index['Floor or bracing start node col']
@@ -191,9 +196,9 @@ def get_floor_or_bracing(ws,excel_index,parameter):
 
     if parameter == 'Floor Bracing':
         ws = wb.get_sheet_by_name('Floor Bracing')
-    if parameter == 'Bracing':
+    elif parameter == 'Bracing':
         ws = wb.get_sheet_by_name('Bracing')
-    if parameter == 'Floor Plans':
+    elif parameter == 'Floor Plans':
         ws = wb.get_sheet_by_name('Floor Plans')
     else:
         print('Input should be either "Floor Bracing", "Bracing", or "Floor Plans"')
@@ -234,41 +239,42 @@ def get_floor_or_bracing(ws,excel_index,parameter):
 
 #TESTING
 wb = load_workbook('SetupAB.xlsx')
-ws_index = wb.get_sheet_by_name('Index')
-ExcelIndex = get_excel_indices(ws_index, 'A', 'B', 2)
-InputTable = ExcelIndex['Input table sheet']
-FloorPlan = ExcelIndex['Floor plans sheet']
-SectionProperties = ExcelIndex['Section properties sheet']
-Bracing = ExcelIndex['Bracing sheet']
-FloorBracing = ExcelIndex['Floor bracing sheet']
-Materials = ExcelIndex['Materials sheet']
-InputTableOffset = ExcelIndex['Input table offset']
-PropertiesStartRow = ExcelIndex['Properties start row']
+ExcelIndex = get_excel_indices(wb, 'A', 'B', 2)
+#InputTable = ExcelIndex['Input table sheet']
+#FloorPlan = ExcelIndex['Floor plans sheet']
+#SectionProperties = ExcelIndex['Section properties sheet']
+#Bracing = ExcelIndex['Bracing sheet']
+#FloorBracing = ExcelIndex['Floor bracing sheet']
+#Materials = ExcelIndex['Materials sheet']
+#InputTableOffset = ExcelIndex['Input table offset']
+#PropertiesStartRow = ExcelIndex['Properties start row']
 
 
-SectionProperties = get_properties(wb,ExcelIndex,'Section')
-Materials = get_properties(wb,ExcelIndex,'Material')
-Nodes = get_node_info(wb,ExcelIndex,'Bracing')
+#SectionProperties = get_properties(wb,ExcelIndex,'Section')
+#Materials = get_properties(wb,ExcelIndex,'Material')
 Bracing = get_floor_or_bracing(wb,ExcelIndex,'Bracing')
 FloorPlans = get_floor_or_bracing(wb,ExcelIndex,'Floor Plans')
 FloorBracing = get_floor_or_bracing(wb,ExcelIndex,'Floor Bracing')
 
-for keys,values in ExcelIndex.items():
-    print(keys)
-    print(values)
+#for keys,values in ExcelIndex.items():
+#    print(keys)
+#    print(values)
 
-for keys,values in SectionProperties.items():
-    print(keys)
-    print(values)
+#for keys,values in SectionProperties.items():
+#    print(keys)
+#    print(values)
 
-for keys,values in Materials.items():
-    print(keys)
-    print(values)
+#for keys,values in Materials.items():
+#    print(keys)
+#    print(values)
 
 for keys,values in Bracing.items():
     print(keys)
     print(values)
 
+for keys,values in FloorPlans.items():
+    print(keys)
+    print(values)
 
 AllTowers = read_input_table(wb, ExcelIndex)
 for tower in AllTowers:
