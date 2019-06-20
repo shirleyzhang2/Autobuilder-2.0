@@ -11,8 +11,7 @@ import ReadExcel
 #Read in the excel workbook
 print("\nReading Excel spreadsheet...")
 wb = load_workbook('SetupAB.xlsx')
-ws_index = wb['Index']
-ExcelIndex = ReadExcel.get_excel_indices(ws_index, 'A', 'B', 2)
+ExcelIndex = ReadExcel.get_excel_indices(wb, 'A', 'B', 2)
 
 Sections = ReadExcel.get_properties(wb,ExcelIndex,'Section')
 Materials = ReadExcel.get_properties(wb,ExcelIndex,'Material')
