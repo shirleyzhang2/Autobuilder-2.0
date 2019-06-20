@@ -8,7 +8,7 @@ import string
 ##########get excel index############
 def get_excel_indices(wb, index_headings_col, index_values_col, index_start_row):
     excel_index = {}
-    ws = wb.get_sheet_by_name('Index')
+    ws = wb['Index']
     current_row = index_start_row
     while ws[index_headings_col + str(current_row)].value is not None:
         index_heading = ws[index_headings_col + str(current_row)].value
@@ -24,9 +24,9 @@ def get_properties(wb,excel_index,parameter):
     values_start_col = excel_index['Section or material values col']
     start_row = excel_index['Properties start row']
     if parameter == 'Material':
-        ws = wb.get_sheet_by_name('Materials')
+        ws = wb['Materials']
     elif parameter == 'Section':
-        ws = wb.get_sheet_by_name('Section Properties')
+        ws = wb['Section Properties']
     else:
         print('Input should be either "Material" or"Section"')
     #parameter = 'unknown'
@@ -71,7 +71,7 @@ def read_input_table(wb,excel_index):
     #Read in the top value in the sheet
     input_table_sheet = excel_index['Input table sheet']
     #Set worksheet to the input table sheet
-    ws_input = wb.get_sheet_by_name('Input Table')
+    ws_input = wb['Input Table']
     input_table_offset = excel_index['Input table offset']
     total_towers = excel_index['Total number of towers']
     cur_tower_row = 1
@@ -163,7 +163,7 @@ def get_node_info(wb, excel_index,parameter):
     if parameter == 'Floor Bracing':
         ws = wb.get_sheet_by_name('Floor Bracing')
     if parameter == 'Bracing':
-        ws = wb.get_sheet_by_name('Bracing')
+        ws = wb['Bracing']
     if parameter == 'Floor Plans':
         ws = wb.get_sheet_by_name('Floor Plans')
 
@@ -185,8 +185,8 @@ def get_node_info(wb, excel_index,parameter):
 
 def get_floor_or_bracing(wb,excel_index,parameter):
 
-    SectionProperties = get_properties(wb,ExcelIndex,'Section')
-    Nodes = get_node_info(wb,ExcelIndex,'Bracing')
+    SectionProperties = get_properties(wb,excel_index,'Section')
+    Nodes = get_node_info(wb,excel_index,'Bracing')
 
     headings_col = excel_index['Floor or bracing name col']
     section_col = excel_index['Floor or bracing section col']
@@ -195,11 +195,11 @@ def get_floor_or_bracing(wb,excel_index,parameter):
     start_row = excel_index['Properties start row']
 
     if parameter == 'Floor Bracing':
-        ws = wb.get_sheet_by_name('Floor Bracing')
+        ws = wb['Floor Bracing']
     elif parameter == 'Bracing':
-        ws = wb.get_sheet_by_name('Bracing')
+        ws = wb['Bracing']
     elif parameter == 'Floor Plans':
-        ws = wb.get_sheet_by_name('Floor Plans')
+        ws = wb['Floor Plans']
     else:
         print('Input should be either "Floor Bracing", "Bracing", or "Floor Plans"')
 
@@ -236,7 +236,7 @@ def get_floor_or_bracing(wb,excel_index,parameter):
         current_end_node_col = get_column_letter(column_index_from_string(current_end_node_col)+8)
     return bracing_index
 
-
+'''
 #TESTING
 wb = load_workbook('SetupAB.xlsx')
 ExcelIndex = get_excel_indices(wb, 'A', 'B', 2)
@@ -272,9 +272,8 @@ for keys,values in Bracing.items():
     print(keys)
     print(values)
 
-for keys,values in FloorPlans.items():
-    print(keys)
-    print(values)
+for Material in Materials.items():
+    print(Material["Name"])
 
 AllTowers = read_input_table(wb, ExcelIndex)
 for tower in AllTowers:
@@ -287,3 +286,5 @@ for tower in AllTowers:
     print(tower.bracing_types)
     print(tower.floor_masses)
     print(tower.floor_bracing_types)
+
+'''
