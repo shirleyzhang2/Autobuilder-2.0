@@ -149,7 +149,7 @@ def get_weight(SapObject):
 def get_FABI(SAPObject):
     results = get_acc_and_drift(SapObject)
     footprint = 96 #inches squared
-    weight = get_weight(Sapobject) #lb
+    weight = get_weight(SapObject) #lb
     design_life = 100 #years
     construction_cost = 2500000*(weight**2)+6*(10**6)
     land_cost = 35000 * footprint
