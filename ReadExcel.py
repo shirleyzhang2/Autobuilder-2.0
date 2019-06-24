@@ -231,6 +231,17 @@ def get_floor_or_bracing(ws,excel_index,parameter):
         current_end_node_col = get_column_letter(column_index_from_string(current_end_node_col)+8)
     return bracing_index
 
+def get_dictionaries(ws):
+    all_index = {}
+    ExcelIndex = get_excel_indices(ws, 'A', 'B', 2)
+    all_index[ExcelIndex] = ExcelIndex
+    all_index[SectionProperties] = get_properties(ws,ExcelIndex,'Section')
+    all_index[Materials] = get_properties(ws,ExcelIndex,'Material')
+    all_index[Bracing] = get_floor_or_bracing(ws,ExcelIndex,'Bracing')
+    all_index[FloorPlans] = get_floor_or_bracing(ws,ExcelIndex,'Floor Plans')
+    all_index[FloorBracing] = get_floor_or_bracing(ws,ExcelIndex,'Floor Bracing')
+    all_index[Towers] = read_input_table(ws, ExcelIndex)
+    return all_index
 
 #TESTING
 wb = load_workbook('SetupAB.xlsx')
