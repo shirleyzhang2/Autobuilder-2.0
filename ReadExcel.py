@@ -212,11 +212,6 @@ def get_bracing(wb,excel_index,parameter):
         ws = wb['Bracing']
     else:
         print('Input should be either "Floor Bracing" or "Bracing"')
-    #parameter = 'unknown'
-    #if ws['A1'].value == 'Bracing #':
-    #    parameter = 'Bracing '
-    #else:
-    #    parameter = 'Floor Plan '
     all_bracing = []
     current_headings_col = headings_col
     current_section_col = section_col
@@ -267,7 +262,6 @@ def get_floor_plans(wb,excel_index):
             section = ws[current_section_col + str(current_row)].value
             start_node_num = ws[current_start_node_col + str(current_row)].value
             end_node_num = ws[current_end_node_col + str(current_row)].value
-            # enter the new entry into the index
             start_node = nodes[start_node_num - 1]
             end_node = nodes[end_node_num - 1]
             cur_members.append(Member(start_node, end_node, section))
