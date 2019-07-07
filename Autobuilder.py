@@ -178,11 +178,6 @@ def build_face_bracing(SapModel, tower, all_floor_plans, all_face_bracing, floor
             [ret, name] = SapModel.FrameObj.AddByCoord(start_x, start_y, start_z, end_x, end_y, end_z, ' ', section_name, ' ', 'CSys1')
             if ret != 0:
                 print('ERROR creating floor bracing member on floor ' + str(floor_num))
-        #change coordinate system depending on long/short side
-        #if i/2 != 1.0:
-            #ret = SapModel.CoordSys.SetCoordSys('CSys1', scaling_x, 0, 0, 90, 0, 0)
-        #else:
-            #ret = SapModel.CoordSys.SetCoordSys('CSys1', 0, scaling_y, 0, 90, 0, 0)
         i += 1
     return SapModel
 
