@@ -6,7 +6,7 @@ from openpyxl.utils.cell import get_column_letter, column_index_from_string
 import string
 
 class Tower:
-    def __init__(self, number, member_mat, rod_mat, floor_plans, floor_heights, col_props, bracing_types, floor_masses, floor_bracing_types):
+    def __init__(self, number, member_mat, rod_mat, floor_plans, floor_heights, col_props, bracing_types, floor_masses, floor_bracing_types,side):
         self.number = number
         self.member_mat = member_mat
         self.rod_mat = rod_mat
@@ -16,9 +16,10 @@ class Tower:
         self.bracing_types = bracing_types
         self.floor_masses = floor_masses
         self.floor_bracing_types = floor_bracing_types
+        self.side = side
 
 class BracingScheme:
-    def __init__(self, number=1, members=[]):
+    def __init__(self, number=1, face=1, members=[]):
         self.number = number
         self.members = members
 
@@ -33,6 +34,7 @@ class Member:
         self.start_node = start_node
         self.end_node = end_node
         self.sec_prop = sec_prop
+
 
 ##########get excel index############
 def get_excel_indices(wb, index_headings_col, index_values_col, index_start_row):
@@ -96,7 +98,7 @@ def read_input_table(wb,excel_index):
     cur_tower_num = 1
     while cur_tower_num <= total_towers:
         #create tower object
-        cur_tower = Tower(0,0,0,0,0,0,0,0,0)
+        cur_tower = Tower(0,0,0,0,0,0,0,0,0,0)
         #read member material
         member_mat = ws_input['B'+str(cur_tower_row + 1)].value
         cur_tower.member_mat = member_mat
@@ -126,11 +128,13 @@ def read_input_table(wb,excel_index):
         col_props_end_col = excel_index['Column properties end']
         cur_floor_row = cur_tower_row + input_table_offset
         cur_col = col_props_start_col
-        col_props = []
+        col_props = {}
+        face = 1
         while ws_input[cur_col + str(cur_floor_row)].value is not None:
+            col_props[face] = []
             while cur_col != get_column_letter(column_index_from_string(col_props_end_col)+1):
                 col_prop = ws_input[cur_col + str(cur_floor_row)].value
-                col_props.append(col_prop)
+                col_props[face] = col_prop
                 cur_col = get_column_letter(column_index_from_string(cur_col)+1)
             cur_col = col_props_start_col
             cur_floor_row = cur_floor_row + 1
@@ -140,14 +144,17 @@ def read_input_table(wb,excel_index):
         bracing_types_end_col= excel_index['Bracing type end']
         cur_floor_row = cur_tower_row + input_table_offset
         cur_col = bracing_types_start_col
-        bracing_types = []
+        bracing_types = {}
+        face = 1
         while ws_input[cur_col + str(cur_floor_row)].value is not None:
+            bracing_types[face] = []
             while cur_col != get_column_letter(column_index_from_string(bracing_types_end_col)+1):
                 bracing_type = ws_input[cur_col + str(cur_floor_row)].value
-                bracing_types.append(bracing_type)
+                bracing_types[face].append(bracing_type)
                 cur_col = get_column_letter(column_index_from_string(cur_col)+1)
             cur_col = bracing_types_start_col
             cur_floor_row = cur_floor_row + 1
+            face += 1
         cur_tower.bracing_types = bracing_types
         #read floor masses
         floor_masses_col = excel_index['Floor mass col']
@@ -167,6 +174,17 @@ def read_input_table(wb,excel_index):
             floor_bracing_types.append(floor_bracing)
             cur_floor_row = cur_floor_row + 1
         cur_tower.floor_bracing_types = floor_bracing_types
+        #read number of sides
+        side = []
+        side_start_col = excel_index['Bracing type start']
+        side_end_col= excel_index['Bracing type end']
+        cur_side_row = cur_tower_row + input_table_offset - 1
+        cur_col = side_start_col
+        while cur_col != get_column_letter(column_index_from_string(side_end_col)+1):
+            side_num = ws_input[cur_col + str(cur_side_row)].value
+            side.append(side_num)
+            cur_col = get_column_letter(column_index_from_string(cur_col)+1)
+        cur_tower.side = side
         #increment
         cur_tower.number = cur_tower_num
         all_towers.append(cur_tower)

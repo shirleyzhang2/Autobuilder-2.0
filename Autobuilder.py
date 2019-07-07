@@ -101,6 +101,89 @@ def build_floor_plan_and_bracing(SapModel, tower, all_floor_plans, all_floor_bra
         [ret, name] = SapModel.FrameObj.AddByCoord(start_x, start_y, start_z, end_x, end_y, end_z, PropName=section_name)
         if ret != 0:
             print('ERROR creating floor bracing member on floor ' + str(floor_num))
+    return SapModel, scaling_x, scaling_y
+
+def build_face_bracing(SapModel, tower, all_floor_plans, all_face_bracing, floor_num, floor_elev):
+    print('Building face bracing...')
+    i = 1
+    while i <= len(Tower.side):
+        face_bracing_num = Tower.bracing_types[floor_num][i-1]
+        face_bracing = all_face_bracing[face_bracing_num-1]
+
+        #Find max x and y coordinates:
+        all_plan_nodes = []
+        floor_plan_num = tower.floor_plans[floor_num-1]
+        floor_plan = all_floor_plans[floor_plan_num-1]
+        for member in floor_plan.members:
+            all_plan_nodes.append(member.start_node)
+            all_plan_nodes.append(member.end_node)
+
+        all_bracing_nodes = []
+        for member in face_bracing.members:
+            all_bracing_nodes.append(member.start_node)
+            all_bracing_nodes.append(member.end_node)
+
+        max_node_x = 0
+        max_node_y = 0
+        min_node_x = 0
+        min_node_y = 0
+        for node in all_plan_nodes:
+            if max_node_x < node[0]:
+                max_node_x = node[0]
+            if max_node_y < node[1]:
+                max_node_y = node[1]
+            if min_node_x > node[0]:
+                min_node_x = node[0]
+            if min_node_y > node[1]:
+                min_node_y = node[1]
+        #Find scaling factor
+        scaling_x = max_node_x - min_node_x
+        scaling_y = max_node_y - min_node_y
+        scaling_z = tower.floor_heights[floor_num-1]
+        
+        for member in face_bracing.members:
+            kip_in_F = 3
+            SapModel.SetPresentUnits(kip_in_F)
+            start_node = member.start_node
+            end_node = member.end_node
+            
+            #Create face bracing for long side
+            if i == ExcelIndex['Side 1'] or i == ExcelIndex['Side 3']:
+                start_x = start_node[0] * scaling_x
+                start_y = 0
+                start_z = start_node[1] * scaling_z + floor_elev
+                end_x = end_node[0] * scaling_x
+                end_y = 0
+                end_z = end_node[1] * scaling_z + floor_elev
+            #Create face bracing for short side
+            elif i == ExcelIndex['Side 2'] or i == ExcelIndex['Side 4']:
+                start_x = start_node[0] * scaling_y
+                start_y = 0
+                start_z = start_node[1] * scaling_z + floor_elev
+                end_x = end_node[0] * scaling_y
+                end_y = 0 
+                end_z = end_node[1] * scaling_z + floor_elev
+            section_name = member.sec_prop 
+            #rotate coordinate system 
+
+            if i == ExcelIndex['Side 1']:
+                ret = SapModel.CoordSys.SetCoordSys('CSys1', 0, 0, 0, 0, 0, 0)
+            elif i == ExcelIndex['Side 2']:
+                ret = SapModel.CoordSys.SetCoordSys('CSys1', scaling_x, 0, 0, 90, 0, 0)
+            elif i == ExcelIndex['Side 3']:
+                ret = SapModel.CoordSys.SetCoordSys('CSys1', 0, scaling_y, 0, 0, 0, 0)
+            elif i == ExcelIndex['Side 4']:
+                ret = SapModel.CoordSys.SetCoordSys('CSys1', 0, 0, 0, 90, 0, 0)
+
+            [ret, name] = SapModel.FrameObj.AddByCoord(start_x, start_y, start_z, end_x, end_y, end_z, ' ', section_name, ' ', 'CSys1')
+            if ret != 0:
+                print('ERROR creating floor bracing member on floor ' + str(floor_num))
+        #change coordinate system depending on long/short side
+        #if i/2 != 1.0:
+            #ret = SapModel.CoordSys.SetCoordSys('CSys1', scaling_x, 0, 0, 90, 0, 0)
+        #else:
+            #ret = SapModel.CoordSys.SetCoordSys('CSys1', 0, scaling_y, 0, 90, 0, 0)
+        i += 1
     return SapModel
 
 def get_acc_and_drift(SapObject):
@@ -218,7 +301,7 @@ print('--------------------------------------------------------\n')
 
 #Read in the excel workbook
 print("\nReading Excel spreadsheet...")
-wb = load_workbook('SetupAB.xlsx')
+wb = load_workbook('SetupAB.xlsm')
 ExcelIndex = ReadExcel.get_excel_indices(wb, 'A', 'B', 2)
 
 Sections = ReadExcel.get_properties(wb,ExcelIndex,'Section')
@@ -292,14 +375,16 @@ TowerNum = 1
 for Tower in AllTowers:
     print('\nBuilding tower number ' + str(TowerNum))
     print('-------------------------')
+    print(Tower.bracing_types)
     NumFloors = len(Tower.floor_plans)
     CurFloorNum = 1
     CurFloorElevation = 0
-    while CurFloorNum <= NumFloors:
+    while CurFloorNum <=  NumFloors:
         print('Floor ' + str(CurFloorNum))
-        build_floor_plan_and_bracing(SapModel, Tower, FloorPlans, FloorBracing, CurFloorNum, CurFloorElevation)
-        #INSERT FUNCTION TO CREATE BRACING AT CURRENT FLOOR
-
+        if CurFloorNum <=  NumFloors:
+            build_floor_plan_and_bracing(SapModel, Tower, FloorPlans, FloorBracing, CurFloorNum, CurFloorElevation)
+        if CurFloorNum <  NumFloors:
+            build_face_bracing(SapModel, Tower, FloorPlans, Bracing, CurFloorNum, CurFloorElevation)
         #INSERT FUNCTION TO CREATE COLUMNS AT CURRENT FLOOR
 
         CurFloorHeight = Tower.floor_heights[CurFloorNum - 1]
