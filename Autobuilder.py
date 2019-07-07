@@ -125,7 +125,7 @@ def build_face_bracing(SapModel, tower, all_floor_plans, all_face_bracing, floor
 
         max_node_x = 0
         max_node_y = 0
-        min_node_x = 0
+        min_node_x = 0 
         min_node_y = 0
         for node in all_plan_nodes:
             if max_node_x < node[0]:
