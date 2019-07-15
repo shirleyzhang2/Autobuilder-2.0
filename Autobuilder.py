@@ -343,22 +343,21 @@ ComputeTimes = []
 # Define load cases
 SapModel = define_loading(SapModel, TimeHistoryLoc, SaveLoc)
 # Start scatter plot of FABI
+plt.ion()
+fig = plt.figure()
+ax = plt.subplot(1,1,1)
+ax.set_xlabel('Tower Number')
+ax.set_ylabel('FABI')
 xdata = []
 ydata = []
-axes = plt.gca()
-axes.set_xlim(1, len(AllTowers))
-axes.set_ylim(bottom=0)
-ScatterPlot, = axes.plot(xdata, ydata, 'ro')
-plt.grid(True, 'both', 'both')
-plt.xlabel('Tower Number')
-plt.ylabel('FABI')
+ax.plot(xdata, ydata, 'ro', markersize=10)
+plt.grid(True)
+
 plt.show(block=False)
-plt.ion()
 
-
-StartTime = time.time()
 # Build all towers defined in spreadsheet
 for Tower in AllTowers:
+    StartTimeTower = time.time()
     print('\nBuilding tower number ' + str(TowerNum))
     print('-------------------------')
     NumFloors = len(Tower.floor_plans)
@@ -399,7 +398,7 @@ for Tower in AllTowers:
         print('ERROR deleting all')
     # Determine total time taken to build current tower
     EndTime = time.time()
-    TimeToComputeTower = EndTime - StartTime
+    TimeToComputeTower = EndTime - StartTimeTower
     ComputeTimes.append(TimeToComputeTower)
     AverageComputeTime = sum(ComputeTimes) / len(ComputeTimes)
     ElapsedTime = sum(ComputeTimes)
@@ -429,16 +428,19 @@ for Tower in AllTowers:
     # Add FABI to scatter plot
     xdata.append(TowerNum)
     ydata.append(AllFABI[TowerNum-1])
-    ScatterPlot.set_xdata(xdata)
-    ScatterPlot.set_ydata(ydata)
-    plt.xlim(0, TowerNum + 1)
-    plt.ylim(0, max(AllFABI) + max(AllFABI) / 4)
+    ax.lines[0].set_data(xdata,ydata)
+    ax.relim()
+    ax.autoscale_view()
     plt.xticks(numpy.arange(min(xdata), max(xdata)+1, 1.0))
     plt.title('Average time per tower: ' + str(AverageComputeTime) + ' seconds\n' + 'Estimated time remaining: ' + str(EstimatedTimeRemaining) + ' ' + TimeUnitEstTime + '\nElapsed time so far: ' + str(ElapsedTime) + ' ' + TimeUnitElaTime)
-    plt.draw()
-    plt.pause(1e-6)
-    plt.show(block=False)
-    plt.ion()
+    fig.canvas.flush_events()
+    #ScatterPlot.set_xdata(xdata)
+    #ScatterPlot.set_ydata(ydata)
+    #plt.xlim(0, TowerNum + 1)
+    #plt.ylim(0, max(AllFABI) + max(AllFABI) / 4)
+    #plt.draw()
+    #plt.pause(1e-6)
+    #plt.show(block=False)
     # Increment tower number
     TowerNum += 1
 
