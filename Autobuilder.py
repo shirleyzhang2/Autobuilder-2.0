@@ -12,6 +12,7 @@ from scipy.stats import norm
 import datetime
 import matplotlib.pyplot as plt
 
+
 def build_floor_plan_and_bracing(SapModel, tower, all_floor_plans, all_floor_bracing, floor_num, floor_elev):
     print('Building floor plan...')
     floor_plan_num = tower.floor_plans[floor_num-1]
@@ -153,31 +154,28 @@ def build_face_bracing(SapModel, tower, all_floor_plans, all_face_bracing, floor
             end_node = member.end_node
             
             #Create face bracing for long side
-            if i == ExcelIndex['Side 1'] or i == ExcelIndex['Side 3']:
-                start_x = start_node[0] * scaling_x
-                start_y = 0
-                start_z = start_node[1] * scaling_z + floor_elev
-                end_x = end_node[0] * scaling_x
-                end_y = 0
-                end_z = end_node[1] * scaling_z + floor_elev
+            if i == 1 or i == 3:
+                scaling_x_or_y = scaling_x
             #Create face bracing for short side
-            elif i == ExcelIndex['Side 2'] or i == ExcelIndex['Side 4']:
-                start_x = start_node[0] * scaling_y
-                start_y = 0
-                start_z = start_node[1] * scaling_z + floor_elev
-                end_x = end_node[0] * scaling_y
-                end_y = 0 
-                end_z = end_node[1] * scaling_z + floor_elev
-            section_name = member.sec_prop 
-            #rotate coordinate system 
+            elif i == 2 or i == 4:
+                scaling_x_or_y = scaling_y
 
-            if i == ExcelIndex['Side 1']:
+            start_x = start_node[0] * scaling_x_or_y
+            start_y = 0
+            start_z = start_node[1] * scaling_z + floor_elev
+            end_x = end_node[0] * scaling_x_or_y
+            end_y = 0
+            end_z = end_node[1] * scaling_z + floor_elev
+            section_name = member.sec_prop 
+            
+            #rotate coordinate system through side 1 - 4
+            if i == 1:
                 ret = SapModel.CoordSys.SetCoordSys('CSys1', 0, 0, 0, 0, 0, 0)
-            elif i == ExcelIndex['Side 2']:
+            elif i == 2:
                 ret = SapModel.CoordSys.SetCoordSys('CSys1', scaling_x, 0, 0, 90, 0, 0)
-            elif i == ExcelIndex['Side 3']:
+            elif i == 3:
                 ret = SapModel.CoordSys.SetCoordSys('CSys1', 0, scaling_y, 0, 0, 0, 0)
-            elif i == ExcelIndex['Side 4']:
+            elif i == 4:
                 ret = SapModel.CoordSys.SetCoordSys('CSys1', 0, 0, 0, 90, 0, 0)
 
             [ret, name] = SapModel.FrameObj.AddByCoord(start_x, start_y, start_z, end_x, end_y, end_z, ' ', section_name, ' ', 'CSys1')
@@ -282,22 +280,23 @@ def run_analysis(SapModel):
     #convert to lb
     total_weight = total_weight / 0.45359237
     return max_acc, max_drift, total_weight
-'''
-def print_acc_and_drift(SapObject):
-    print('\nAnalyze')
-    print('----------------------------------')
-    max_acc_and_drift = get_sap_results(SapObject)
-    print('Max acceleration is: ' + str(max_acc_and_drift[0]) + ' g')
-    print('Max drift is: ' + str(max_acc_and_drift[1]) + ' mm')
-    return max_acc_and_drift
-'''
-def get_FABI(max_acc, max_disp, weight):
-    footprint = 96 #inches squared
+
+def get_FABI(max_acc, max_disp, area, weight):
+    footprint =  area#inches squared
     design_life = 100 #years
     construction_cost = 2500000*(weight**2)+6*(10**6)
     land_cost = 35000 * footprint
     annual_building_cost = (land_cost + construction_cost) / design_life
-    annual_revenue = 430300
+    floor_num = len(Tower.floor_heights)
+    if floor_num <= 2:
+        annual_revenue = 250 * floor_num
+    elif floor_num <= 9:
+        annual_revenue = 250 * 2 + 175 * (floor_num - 2)
+    elif floor_num <= 15:
+        annual_revenue = 250 * 2 + 175 * 7 + 225 * (floor_num - 9)
+    else:
+        annual_revenue = 250 * 2 + 175 * 7 + 225 * 6 + 275 * (floor_num - 15)
+    #annual_revenue = 430300
     equipment_cost = 20000000
     return_period_1 = 50
     return_period_2 = 300
@@ -464,7 +463,7 @@ for Tower in AllTowers:
     #run analysis and get weight and acceleration
     [MaxAcc, MaxDisp, Weight] = run_analysis(SapModel)
     #Calculate model FABI
-    AllFABI.append(get_FABI(MaxAcc, MaxDisp, Weight))
+    AllFABI.append(get_FABI(MaxAcc, MaxDisp, FloorPlans[0].area,Weight))
     ##IS THIS FABI OR SEISMIC COST??
     #Print results to spreadsheet
     #Unlock model
