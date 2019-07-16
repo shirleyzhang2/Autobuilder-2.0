@@ -12,6 +12,7 @@ from scipy.stats import norm
 import datetime
 import matplotlib.pyplot as plt
 
+
 def build_floor_plan_and_bracing(SapModel, tower, all_floor_plans, all_floor_bracing, floor_num, floor_elev):
     print('Building floor plan...')
     floor_plan_num = tower.floor_plans[floor_num-1]
@@ -66,7 +67,7 @@ def build_floor_plan_and_bracing(SapModel, tower, all_floor_plans, all_floor_bra
     ret = SapModel.PointObj.SetLoadForce(mass_name_1, 'DEAD', [0, 0, mass_per_node*9.81, 0, 0, 0])
     ret = SapModel.PointObj.SetLoadForce(mass_name_2, 'DEAD', [0, 0, mass_per_node*9.81, 0, 0, 0])
     #create floor bracing
-    floor_bracing_num = tower.floor_bracing_types[floor_num-1]
+    floor_bracing_num = tower.floor_plans[floor_num-1]
     floor_bracing = all_floor_bracing[floor_bracing_num-1]
     #Finding x and y scaling factors:
     all_plan_nodes = []
@@ -106,6 +107,85 @@ def build_floor_plan_and_bracing(SapModel, tower, all_floor_plans, all_floor_bra
         [ret, name] = SapModel.FrameObj.AddByCoord(start_x, start_y, start_z, end_x, end_y, end_z, PropName=section_name)
         if ret != 0:
             print('ERROR creating floor bracing member on floor ' + str(floor_num))
+    return SapModel
+
+def build_face_bracing(SapModel, tower, all_floor_plans, all_face_bracing, floor_num, floor_elev):
+    print('Building face bracing...')
+    i = 1
+    while i <= len(Tower.side):
+        face_bracing_num = Tower.bracing_types[floor_num][i-1]
+        face_bracing = all_face_bracing[face_bracing_num-1]
+
+        #Find max x and y coordinates:
+        all_plan_nodes = []
+        floor_plan_num = tower.floor_plans[floor_num-1]
+        floor_plan = all_floor_plans[floor_plan_num-1]
+        for member in floor_plan.members:
+            all_plan_nodes.append(member.start_node)
+            all_plan_nodes.append(member.end_node)
+
+        all_bracing_nodes = []
+        for member in face_bracing.members:
+            all_bracing_nodes.append(member.start_node)
+            all_bracing_nodes.append(member.end_node)
+
+        max_node_x = 0
+        max_node_y = 0
+        min_node_x = 0
+        min_node_y = 0
+        for node in all_plan_nodes:
+            if max_node_x < node[0]:
+                max_node_x = node[0]
+            if max_node_y < node[1]:
+                max_node_y = node[1]
+            if min_node_x > node[0]:
+                min_node_x = node[0]
+            if min_node_y > node[1]:
+                min_node_y = node[1]
+        #Find scaling factor
+        scaling_x = max_node_x - min_node_x
+        scaling_y = max_node_y - min_node_y
+        scaling_z = tower.floor_heights[floor_num-1]
+        
+        for member in face_bracing.members:
+            kip_in_F = 3
+            SapModel.SetPresentUnits(kip_in_F)
+            start_node = member.start_node
+            end_node = member.end_node
+            
+            #Create face bracing for long side
+            if i == 1 or i == 3:
+                scaling_x_or_y = scaling_x
+            #Create face bracing for short side
+            elif i == 2 or i == 4:
+                scaling_x_or_y = scaling_y
+
+            start_x = start_node[0] * scaling_x_or_y
+            start_y = 0
+            start_z = start_node[1] * scaling_z + floor_elev
+            end_x = end_node[0] * scaling_x_or_y
+            end_y = 0
+            end_z = end_node[1] * scaling_z + floor_elev
+            section_name = member.sec_prop 
+            #rotate coordinate system through side 1 - 4
+            if i == 1:
+                ret = SapModel.CoordSys.SetCoordSys('CSys1', 0, 0, 0, 0, 0, 0)
+            elif i == 2:
+                ret = SapModel.CoordSys.SetCoordSys('CSys1', scaling_x, 0, 0, 90, 0, 0)
+            elif i == 3:
+                ret = SapModel.CoordSys.SetCoordSys('CSys1', 0, scaling_y, 0, 0, 0, 0)
+            elif i == 4:
+                ret = SapModel.CoordSys.SetCoordSys('CSys1', 0, 0, 0, 90, 0, 0)
+
+            [ret, name] = SapModel.FrameObj.AddByCoord(start_x, start_y, start_z, end_x, end_y, end_z, ' ', section_name, ' ', 'CSys1')
+            if ret != 0:
+                print('ERROR creating floor bracing member on floor ' + str(floor_num))
+        #change coordinate system depending on long/short side
+        #if i/2 != 1.0:
+            #ret = SapModel.CoordSys.SetCoordSys('CSys1', scaling_x, 0, 0, 90, 0, 0)
+        #else:
+            #ret = SapModel.CoordSys.SetCoordSys('CSys1', 0, scaling_y, 0, 90, 0, 0)
+        i += 1
     return SapModel
 
 def set_base_restraints(SapModel):
@@ -204,22 +284,24 @@ def run_analysis(SapModel):
     #convert to lb
     total_weight = total_weight / 0.45359237
     return max_acc, max_drift, total_weight
-'''
-def print_acc_and_drift(SapObject):
-    print('\nAnalyze')
-    print('----------------------------------')
-    max_acc_and_drift = get_sap_results(SapObject)
-    print('Max acceleration is: ' + str(max_acc_and_drift[0]) + ' g')
-    print('Max drift is: ' + str(max_acc_and_drift[1]) + ' mm')
-    return max_acc_and_drift
-'''
-def get_FABI(max_acc, max_disp, weight):
-    footprint = 96 #inches squared
+
+
+def get_FABI(max_acc, max_disp, area, weight):
+    footprint =  area#inches squared
     design_life = 100 #years
     construction_cost = 2500000*(weight**2)+6*(10**6)
     land_cost = 35000 * footprint
     annual_building_cost = (land_cost + construction_cost) / design_life
-    annual_revenue = 430300
+    floor_num = len(Tower.floor_heights)
+    if floor_num <= 2:
+        annual_revenue = 250 * floor_num
+    elif floor_num <= 9:
+        annual_revenue = 250 * 2 + 175 * (floor_num - 2)
+    elif floor_num <= 15:
+        annual_revenue = 250 * 2 + 175 * 7 + 225 * (floor_num - 9)
+    else:
+        annual_revenue = 250 * 2 + 175 * 7 + 225 * 6 + 275 * (floor_num - 15)
+    #annual_revenue = 430300
     equipment_cost = 20000000
     return_period_1 = 50
     return_period_2 = 300
@@ -254,6 +336,7 @@ def write_to_excel(wb, all_fabi, save_loc):
 
 
 
+
 #----START-----------------------------------------------------START----------------------------------------------------#
 
 
@@ -264,7 +347,7 @@ print('--------------------------------------------------------\n')
 
 #Read in the excel workbook
 print("\nReading Excel spreadsheet...")
-wb = load_workbook('SetupAB.xlsx')
+wb = load_workbook('SetupAB.xlsm')
 ExcelIndex = ReadExcel.get_excel_indices(wb, 'A', 'B', 2)
 
 Sections = ReadExcel.get_properties(wb,ExcelIndex,'Section')
@@ -365,11 +448,13 @@ for Tower in AllTowers:
     CurFloorNum = 1
     CurFloorElevation = 0
     # Build each floor of the tower
-    while CurFloorNum <= NumFloors:
-        print('Floor ' + str(CurFloorNum))
-        SapModel = build_floor_plan_and_bracing(SapModel, Tower, FloorPlans, FloorBracing, CurFloorNum, CurFloorElevation)
-        #INSERT FUNCTION TO CREATE BRACING AT CURRENT FLOOR
 
+    while CurFloorNum <=  NumFloors:
+        print('Floor ' + str(CurFloorNum))
+        if CurFloorNum <=  NumFloors:
+            SapModel = build_floor_plan_and_bracing(SapModel, Tower, FloorPlans, FloorBracing, CurFloorNum, CurFloorElevation)
+        if CurFloorNum <  NumFloors:
+            SapModel = build_face_bracing(SapModel, Tower, FloorPlans, Bracing, CurFloorNum, CurFloorElevation)
         #INSERT FUNCTION TO CREATE COLUMNS AT CURRENT FLOOR
 
         CurFloorHeight = Tower.floor_heights[CurFloorNum - 1]
@@ -385,7 +470,7 @@ for Tower in AllTowers:
     #run analysis and get weight and acceleration
     [MaxAcc, MaxDisp, Weight] = run_analysis(SapModel)
     #Calculate model FABI
-    AllFABI.append(get_FABI(MaxAcc, MaxDisp, Weight))
+    AllFABI.append(get_FABI(MaxAcc, MaxDisp, FloorPlans[0].area,Weight))
     ##IS THIS FABI OR SEISMIC COST??
     #Print results to spreadsheet
     #Unlock model
@@ -451,3 +536,4 @@ print('Closing SAP2000...')
 SapObject.ApplicationExit(False)
 print('FINISHED.')
 plt.show(block=True)
+
