@@ -24,10 +24,14 @@ class BracingScheme:
         self.members = members
 
 class FloorPlan:
-    def __init__(self, number=1, members=[], mass_nodes=[]):
+    def __init__(self, number=1, members=[], mass_nodes=[], scaling_x = 0, scaling_y = 0, area = 0):
         self.number = number
         self.members = members
         self.mass_nodes = mass_nodes
+        self.scaling_x = scaling_x
+        self.scaling_y = scaling_y
+        self.area = area
+        
 
 class Member:
     def __init__(self, start_node=[], end_node=[], sec_prop=1):
@@ -274,8 +278,12 @@ def get_floor_plans(wb,excel_index):
     while ws[current_headings_col + str(4)].value is not None:
         [nodes, mass_nodes] = get_node_info(wb, excel_index, current_headings_col, 'Floor Plans')
         current_row = start_row
-        j = 1
+        #j = 1
         cur_members = []
+        max_node_x = 0
+        max_node_y = 0
+        min_node_x = 0
+        min_node_y = 0
         while ws[current_start_node_col + str(current_row)].value is not None:
             section = ws[current_section_col + str(current_row)].value
             start_node_num = ws[current_start_node_col + str(current_row)].value
@@ -283,9 +291,25 @@ def get_floor_plans(wb,excel_index):
             start_node = nodes[start_node_num - 1]
             end_node = nodes[end_node_num - 1]
             cur_members.append(Member(start_node, end_node, section))
+            #find scaling factor in x and y, find area
+            cur_nodes = []
+            cur_nodes.append(start_node)
+            cur_nodes.append(end_node)
+            for node in cur_nodes:
+                if max_node_x < start_node[0]:
+                    max_node_x = node[0]
+                if max_node_y < node[1]:
+                    max_node_y = node[1]
+                if min_node_x > node[0]:
+                    min_node_x = node[0]
+                if min_node_y > node[1]:
+                    min_node_y = node[1]
             current_row = current_row + 1
-            j += 1
-        all_plans.append(FloorPlan(number=i, members=cur_members, mass_nodes=mass_nodes))
+            #j += 1
+        scaling_x = max_node_x - min_node_x
+        scaling_y = max_node_y - min_node_y
+        area = scaling_x*scaling_y
+        all_plans.append(FloorPlan(number=i, members=cur_members, mass_nodes=mass_nodes, scaling_x = scaling_x, scaling_y = scaling_y, area = area))
         i += 1
         current_headings_col = get_column_letter(column_index_from_string(current_headings_col) + 9)
         current_section_col = get_column_letter(column_index_from_string(current_section_col) + 9)
@@ -293,24 +317,27 @@ def get_floor_plans(wb,excel_index):
         current_end_node_col = get_column_letter(column_index_from_string(current_end_node_col) + 9)
     return all_plans
 
-'''
+
 #TESTING
-wb = load_workbook('SetupAB.xlsx')
-ExcelIndex = get_excel_indices(wb, 'A', 'B', 2)
+#wb = load_workbook('SetupAB.xlsm')
+#ExcelIndex = get_excel_indices(wb, 'A', 'B', 2)
+
 #InputTable = ExcelIndex['Input table sheet']
 #FloorPlan = ExcelIndex['Floor plans sheet']
 #SectionProperties = ExcelIndex['Section properties sheet']
-#Bracing = ExcelIndex['Bracing sheet']
+#Bracing = ExcelIndex['Bracing sheet'
 #FloorBracing = ExcelIndex['Floor bracing sheet']
 #Materials = ExcelIndex['Materials sheet']
 #InputTableOffset = ExcelIndex['Input table offset']
 #PropertiesStartRow = ExcelIndex['Properties start row']
 
+#sectionproperties = get_properties(wb,excelindex,'section')
+#materials = get_properties(wb,excelindex,'material')
+#bracingschemes = get_bracing(wb,excelindex,'bracing')
 
-#SectionProperties = get_properties(wb,ExcelIndex,'Section')
-#Materials = get_properties(wb,ExcelIndex,'Material')
-BracingSchemes = get_bracing(wb,ExcelIndex,'Bracing')
-AllFloorPlans = get_floor_plans(wb,ExcelIndex)
+
+#AllFloorPlans = get_floor_plans(wb,ExcelIndex)
+
 #FloorBracing = get_floor_or_bracing(wb,ExcelIndex,'Floor Bracing')
 
 #for keys,values in ExcelIndex.items():
@@ -326,34 +353,37 @@ AllFloorPlans = get_floor_plans(wb,ExcelIndex)
 #    print(values)
 
 #for keys,values in Bracing.items():
- #   print(keys)
-  #  print(values)
-
-for FloorPlan in AllFloorPlans:
-    print('number ' + str(FloorPlan.number))
-    for member in FloorPlan.members:
-        print(member.start_node)
-        print(member.end_node)
-        print(member.sec_prop)
-    print(FloorPlan.mass_nodes)
-
-for Scheme in BracingSchemes:
-    print('number ' + str(Scheme.number))
-    for member in Scheme.members:
-        print(member.start_node)
-        print(member.end_node)
-        print(member.sec_prop)
+#   print(keys) 
+#   print(values)
 
 
-AllTowers = read_input_table(wb, ExcelIndex)
-for tower in AllTowers:
-    print(tower.number)
-    print(tower.member_mat)
-    print(tower.rod_mat)
-    print(tower.floor_plans)
-    print(tower.floor_heights)
-    print(tower.col_props)
-    print(tower.bracing_types)
-    print(tower.floor_masses)
-    print(tower.floor_bracing_types)
-'''
+#for FloorPlan in AllFloorPlans:
+#    print('number ' + str(FloorPlan.number))
+#    for member in FloorPlan.members:
+#        print(member.start_node)
+#        print(member.end_node)
+#        print(member.sec_prop)
+#    print(FloorPlan.mass_nodes)
+#    print(FloorPlan.scaling_x)
+#    print(FloorPlan.scaling_y)
+#    print(FloorPlan.area)
+
+#for Scheme in BracingSchemes:
+    #print('number ' + str(Scheme.number))
+    #for member in Scheme.members:        
+        #print(member.start_node)
+        #print(member.end_node)
+        #print(member.sec_prop)
+
+
+#AllTowers = read_input_table(wb, ExcelIndex)
+#for tower in AllTowers:
+#    print(tower.number)
+#    print(tower.member_mat)
+#    print(tower.rod_mat)
+#    print(tower.floor_plans)
+#    print(tower.floor_heights)
+#    print(tower.col_props)
+#    print(tower.bracing_types)
+#    print(tower.floor_masses)
+#    print(tower.floor_bracing_types)
