@@ -167,6 +167,7 @@ def build_face_bracing(SapModel, tower, all_floor_plans, all_face_bracing, floor
             end_y = 0
             end_z = end_node[1] * scaling_z + floor_elev
             section_name = member.sec_prop 
+            
             #rotate coordinate system through side 1 - 4
             if i == 1:
                 ret = SapModel.CoordSys.SetCoordSys('CSys1', 0, 0, 0, 0, 0, 0)
@@ -180,11 +181,6 @@ def build_face_bracing(SapModel, tower, all_floor_plans, all_face_bracing, floor
             [ret, name] = SapModel.FrameObj.AddByCoord(start_x, start_y, start_z, end_x, end_y, end_z, ' ', section_name, ' ', 'CSys1')
             if ret != 0:
                 print('ERROR creating floor bracing member on floor ' + str(floor_num))
-        #change coordinate system depending on long/short side
-        #if i/2 != 1.0:
-            #ret = SapModel.CoordSys.SetCoordSys('CSys1', scaling_x, 0, 0, 90, 0, 0)
-        #else:
-            #ret = SapModel.CoordSys.SetCoordSys('CSys1', 0, scaling_y, 0, 90, 0, 0)
         i += 1
     return SapModel
 
@@ -285,7 +281,6 @@ def run_analysis(SapModel):
     total_weight = total_weight / 0.45359237
     return max_acc, max_drift, total_weight
 
-
 def get_FABI(max_acc, max_disp, area, weight):
     footprint =  area#inches squared
     design_life = 100 #years
@@ -333,7 +328,6 @@ def write_to_excel(wb, all_fabi, save_loc):
         ws['B' + str(fabi_num + 1)].value = fabi
         fabi_num += 1
     wb.save(filepath)
-
 
 
 
