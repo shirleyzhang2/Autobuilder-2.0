@@ -67,7 +67,7 @@ def build_floor_plan_and_bracing(SapModel, tower, all_floor_plans, all_floor_bra
     ret = SapModel.PointObj.SetLoadForce(mass_name_1, 'DEAD', [0, 0, mass_per_node*9.81, 0, 0, 0])
     ret = SapModel.PointObj.SetLoadForce(mass_name_2, 'DEAD', [0, 0, mass_per_node*9.81, 0, 0, 0])
     #create floor bracing
-    floor_bracing_num = tower.floor_plans[floor_num-1]
+    floor_bracing_num = tower.floor_bracing_types[floor_num-1]
     floor_bracing = all_floor_bracing[floor_bracing_num-1]
     #Find scaling factors
     scaling_x = floor_plan.scaling_x
