@@ -67,29 +67,11 @@ def build_floor_plan_and_bracing(SapModel, tower, all_floor_plans, all_floor_bra
     ret = SapModel.PointObj.SetLoadForce(mass_name_1, 'DEAD', [0, 0, mass_per_node*9.81, 0, 0, 0])
     ret = SapModel.PointObj.SetLoadForce(mass_name_2, 'DEAD', [0, 0, mass_per_node*9.81, 0, 0, 0])
     #create floor bracing
-    floor_bracing_num = tower.floor_bracing_types[floor_num-1]
+    floor_bracing_num = tower.floor_plans[floor_num-1]
     floor_bracing = all_floor_bracing[floor_bracing_num-1]
-    #Finding x and y scaling factors:
-    all_plan_nodes = []
-    for member in floor_plan.members:
-        all_plan_nodes.append(member.start_node)
-        all_plan_nodes.append(member.end_node)
-    #Find max and min x and y coordinates
-    max_node_x = 0
-    max_node_y = 0
-    min_node_x = 0
-    min_node_y = 0
-    for node in all_plan_nodes:
-        if max_node_x < node[0]:
-            max_node_x = node[0]
-        if max_node_y < node[1]:
-            max_node_y = node[1]
-        if min_node_x > node[0]:
-            min_node_x = node[0]
-        if min_node_y > node[1]:
-            min_node_y = node[1]
-    scaling_x = max_node_x - min_node_x
-    scaling_y = max_node_y - min_node_y
+    #Find scaling factors
+    scaling_x = floor_plan.scaling_x
+    scaling_y = floor_plan.scaling_y
     #Create floor bracing
     print('Building floor bracing...')
     for member in floor_bracing.members:
@@ -107,7 +89,7 @@ def build_floor_plan_and_bracing(SapModel, tower, all_floor_plans, all_floor_bra
         [ret, name] = SapModel.FrameObj.AddByCoord(start_x, start_y, start_z, end_x, end_y, end_z, PropName=section_name)
         if ret != 0:
             print('ERROR creating floor bracing member on floor ' + str(floor_num))
-    return SapModel, scaling_x, scaling_y
+    return SapModel
 
 def build_face_bracing(SapModel, tower, all_floor_plans, all_face_bracing, floor_num, floor_elev):
     print('Building face bracing...')
@@ -116,35 +98,12 @@ def build_face_bracing(SapModel, tower, all_floor_plans, all_face_bracing, floor
         face_bracing_num = Tower.bracing_types[floor_num][i-1]
         face_bracing = all_face_bracing[face_bracing_num-1]
 
-        #Find max x and y coordinates:
-        all_plan_nodes = []
+        #Find scaling factors
         floor_plan_num = tower.floor_plans[floor_num-1]
         floor_plan = all_floor_plans[floor_plan_num-1]
-        for member in floor_plan.members:
-            all_plan_nodes.append(member.start_node)
-            all_plan_nodes.append(member.end_node)
-
-        all_bracing_nodes = []
-        for member in face_bracing.members:
-            all_bracing_nodes.append(member.start_node)
-            all_bracing_nodes.append(member.end_node)
-
-        max_node_x = 0
-        max_node_y = 0
-        min_node_x = 0 
-        min_node_y = 0
-        for node in all_plan_nodes:
-            if max_node_x < node[0]:
-                max_node_x = node[0]
-            if max_node_y < node[1]:
-                max_node_y = node[1]
-            if min_node_x > node[0]:
-                min_node_x = node[0]
-            if min_node_y > node[1]:
-                min_node_y = node[1]
-        #Find scaling factor
-        scaling_x = max_node_x - min_node_x
-        scaling_y = max_node_y - min_node_y
+       
+        scaling_x = floor_plan.scaling_x
+        scaling_y = floor_plan.scaling_y
         scaling_z = tower.floor_heights[floor_num-1]
         
         for member in face_bracing.members:
@@ -167,7 +126,6 @@ def build_face_bracing(SapModel, tower, all_floor_plans, all_face_bracing, floor
             end_y = 0
             end_z = end_node[1] * scaling_z + floor_elev
             section_name = member.sec_prop 
-            
             #rotate coordinate system through side 1 - 4
             if i == 1:
                 ret = SapModel.CoordSys.SetCoordSys('CSys1', 0, 0, 0, 0, 0, 0)
@@ -281,8 +239,8 @@ def run_analysis(SapModel):
     total_weight = total_weight / 0.45359237
     return max_acc, max_drift, total_weight
 
-def get_FABI(max_acc, max_disp, area, weight):
-    footprint =  area#inches squared
+
+def get_FABI(max_acc, max_disp, footprint, weight):
     design_life = 100 #years
     construction_cost = 2500000*(weight**2)+6*(10**6)
     land_cost = 35000 * footprint
@@ -331,6 +289,7 @@ def write_to_excel(wb, all_fabi, save_loc):
 
 
 
+
 #----START-----------------------------------------------------START----------------------------------------------------#
 
 
@@ -341,7 +300,7 @@ print('--------------------------------------------------------\n')
 
 #Read in the excel workbook
 print("\nReading Excel spreadsheet...")
-wb = load_workbook('SetupAB.xlsx')
+wb = load_workbook('SetupAB.xlsm')
 ExcelIndex = ReadExcel.get_excel_indices(wb, 'A', 'B', 2)
 
 Sections = ReadExcel.get_properties(wb,ExcelIndex,'Section')
@@ -420,34 +379,35 @@ ComputeTimes = []
 # Define load cases
 SapModel = define_loading(SapModel, TimeHistoryLoc, SaveLoc)
 # Start scatter plot of FABI
-plt.ion()
-fig = plt.figure()
-ax = plt.subplot(1,1,1)
-ax.set_xlabel('Tower Number')
-ax.set_ylabel('FABI')
 xdata = []
 ydata = []
-ax.plot(xdata, ydata, 'ro', markersize=10)
-plt.grid(True)
-
+axes = plt.gca()
+axes.set_xlim(1, len(AllTowers))
+axes.set_ylim(bottom=0)
+ScatterPlot, = axes.plot(xdata, ydata, 'ro')
+plt.grid(True, 'both', 'both')
+plt.xlabel('Tower Number')
+plt.ylabel('FABI')
 plt.show(block=False)
+plt.ion()
 
+
+StartTime = time.time()
 # Build all towers defined in spreadsheet
 for Tower in AllTowers:
-    StartTimeTower = time.time()
     print('\nBuilding tower number ' + str(TowerNum))
     print('-------------------------')
-    print(Tower.bracing_types)
     NumFloors = len(Tower.floor_plans)
     CurFloorNum = 1
     CurFloorElevation = 0
     # Build each floor of the tower
+
     while CurFloorNum <=  NumFloors:
         print('Floor ' + str(CurFloorNum))
         if CurFloorNum <=  NumFloors:
-            build_floor_plan_and_bracing(SapModel, Tower, FloorPlans, FloorBracing, CurFloorNum, CurFloorElevation)
+            SapModel = build_floor_plan_and_bracing(SapModel, Tower, FloorPlans, FloorBracing, CurFloorNum, CurFloorElevation)
         if CurFloorNum <  NumFloors:
-            build_face_bracing(SapModel, Tower, FloorPlans, Bracing, CurFloorNum, CurFloorElevation)
+            SapModel = build_face_bracing(SapModel, Tower, FloorPlans, Bracing, CurFloorNum, CurFloorElevation)
         #INSERT FUNCTION TO CREATE COLUMNS AT CURRENT FLOOR
 
         CurFloorHeight = Tower.floor_heights[CurFloorNum - 1]
@@ -463,7 +423,7 @@ for Tower in AllTowers:
     #run analysis and get weight and acceleration
     [MaxAcc, MaxDisp, Weight] = run_analysis(SapModel)
     #Calculate model FABI
-    AllFABI.append(get_FABI(MaxAcc, MaxDisp, FloorPlans[0].area,Weight))
+    AllFABI.append(get_FABI(MaxAcc, MaxDisp, Tower.footprint, Weight))
     ##IS THIS FABI OR SEISMIC COST??
     #Print results to spreadsheet
     #Unlock model
@@ -477,7 +437,7 @@ for Tower in AllTowers:
         print('ERROR deleting all')
     # Determine total time taken to build current tower
     EndTime = time.time()
-    TimeToComputeTower = EndTime - StartTimeTower
+    TimeToComputeTower = EndTime - StartTime
     ComputeTimes.append(TimeToComputeTower)
     AverageComputeTime = sum(ComputeTimes) / len(ComputeTimes)
     ElapsedTime = sum(ComputeTimes)
@@ -507,19 +467,16 @@ for Tower in AllTowers:
     # Add FABI to scatter plot
     xdata.append(TowerNum)
     ydata.append(AllFABI[TowerNum-1])
-    ax.lines[0].set_data(xdata,ydata)
-    ax.relim()
-    ax.autoscale_view()
+    ScatterPlot.set_xdata(xdata)
+    ScatterPlot.set_ydata(ydata)
+    plt.xlim(0, TowerNum + 1)
+    plt.ylim(0, max(AllFABI) + max(AllFABI) / 4)
     plt.xticks(numpy.arange(min(xdata), max(xdata)+1, 1.0))
     plt.title('Average time per tower: ' + str(AverageComputeTime) + ' seconds\n' + 'Estimated time remaining: ' + str(EstimatedTimeRemaining) + ' ' + TimeUnitEstTime + '\nElapsed time so far: ' + str(ElapsedTime) + ' ' + TimeUnitElaTime)
-    fig.canvas.flush_events()
-    #ScatterPlot.set_xdata(xdata)
-    #ScatterPlot.set_ydata(ydata)
-    #plt.xlim(0, TowerNum + 1)
-    #plt.ylim(0, max(AllFABI) + max(AllFABI) / 4)
-    #plt.draw()
-    #plt.pause(1e-6)
-    #plt.show(block=False)
+    plt.draw()
+    plt.pause(1e-6)
+    plt.show(block=False)
+    plt.ion()
     # Increment tower number
     TowerNum += 1
 
@@ -532,3 +489,4 @@ print('Closing SAP2000...')
 SapObject.ApplicationExit(False)
 print('FINISHED.')
 plt.show(block=True)
+
