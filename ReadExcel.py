@@ -6,10 +6,11 @@ from openpyxl.utils.cell import get_column_letter, column_index_from_string
 import string
 
 class Tower:
-    def __init__(self, number, member_mat, rod_mat, floor_plans, floor_heights, col_props, bracing_types, floor_masses, floor_bracing_types,side):
+    def __init__(self, number, member_mat, rod_mat, footprint, floor_plans, floor_heights, col_props, bracing_types, floor_masses, floor_bracing_types,side):
         self.number = number
         self.member_mat = member_mat
         self.rod_mat = rod_mat
+        self.footprint = footprint
         self.floor_plans = floor_plans
         self.floor_heights = floor_heights
         self.col_props = col_props
@@ -101,13 +102,16 @@ def read_input_table(wb,excel_index):
     cur_tower_num = 1
     while cur_tower_num <= total_towers:
         #create tower object
-        cur_tower = Tower(0,0,0,0,0,0,0,0,0,0)
+        cur_tower = Tower(0,0,0,0,0,0,0,0,0,0,0)
         #read member material
         member_mat = ws_input['B'+str(cur_tower_row + 1)].value
         cur_tower.member_mat = member_mat
         #read rod material
         rod_mat = ws_input['B'+str(cur_tower_row + 2)].value
         cur_tower.rod_mat = rod_mat
+        #read building footprint in square inches
+        footprint = ws_input['B'+str(cur_tower_row + 3)].value
+        cur_tower.footprint = footprint
         #read floor plans
         floor_pln_col = excel_index['Floor plan col']
         cur_floor_row = cur_tower_row + input_table_offset
@@ -277,7 +281,7 @@ def get_floor_plans(wb,excel_index):
     while ws[current_headings_col + str(4)].value is not None:
         [nodes, mass_nodes] = get_node_info(wb, excel_index, current_headings_col, 'Floor Plans')
         current_row = start_row
-        #j = 1
+
         cur_members = []
         max_node_x = 0
         max_node_y = 0
@@ -304,11 +308,12 @@ def get_floor_plans(wb,excel_index):
                 if min_node_y > node[1]:
                     min_node_y = node[1]
             current_row = current_row + 1
-            #j += 1
+
         scaling_x = max_node_x - min_node_x
         scaling_y = max_node_y - min_node_y
-        area = scaling_x*scaling_y
-        all_plans.append(FloorPlan(number=i, members=cur_members, mass_nodes=mass_nodes, scaling_x = scaling_x, scaling_y = scaling_y, area = area))
+        #area = scaling_x*scaling_y
+        
+        all_plans.append(FloorPlan(number=i, members=cur_members, mass_nodes=mass_nodes, scaling_x = scaling_x, scaling_y = scaling_y))
         i += 1
         current_headings_col = get_column_letter(column_index_from_string(current_headings_col) + 9)
         current_section_col = get_column_letter(column_index_from_string(current_section_col) + 9)
