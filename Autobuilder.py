@@ -316,7 +316,6 @@ def get_FABI(max_acc, max_disp, area, weight):
 
 def write_to_excel(wb, all_fabi, save_loc):
     print('Writing all results to Excel...')
-    now = datetime.datetime.now()
     filepath = save_loc + '/Results.xlsx'
     wb = openpyxl.Workbook()
     ws = wb.active

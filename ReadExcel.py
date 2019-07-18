@@ -31,7 +31,6 @@ class FloorPlan:
         self.scaling_x = scaling_x
         self.scaling_y = scaling_y
         self.area = area
-        
 
 class Member:
     def __init__(self, start_node=[], end_node=[], sec_prop=1):
