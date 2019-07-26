@@ -6,7 +6,7 @@ from openpyxl.utils.cell import get_column_letter, column_index_from_string
 import string
 
 class Tower:
-    def __init__(self, number, member_mat, rod_mat, footprint, floor_plans, floor_heights, col_props, bracing_types, floor_masses, floor_bracing_types,side):
+    def __init__(self, number, member_mat, rod_mat, footprint, floor_plans, floor_heights, col_props, bracing_types, floor_masses, floor_bracing_types, space_bracing_types, side):
         self.number = number
         self.member_mat = member_mat
         self.rod_mat = rod_mat
@@ -17,6 +17,7 @@ class Tower:
         self.bracing_types = bracing_types
         self.floor_masses = floor_masses
         self.floor_bracing_types = floor_bracing_types
+        self.space_bracing_types = space_bracing_types
         self.side = side
 
 class BracingScheme:
@@ -102,7 +103,7 @@ def read_input_table(wb,excel_index):
     cur_tower_num = 1
     while cur_tower_num <= total_towers:
         #create tower object
-        cur_tower = Tower(0,0,0,0,0,0,0,0,0,0,0)
+        cur_tower = Tower(0,0,0,0,0,0,0,0,0,0,0,0)
         #read member material
         member_mat = ws_input['B'+str(cur_tower_row + 1)].value
         cur_tower.member_mat = member_mat
@@ -181,6 +182,15 @@ def read_input_table(wb,excel_index):
             floor_bracing_types.append(floor_bracing)
             cur_floor_row = cur_floor_row + 1
         cur_tower.floor_bracing_types = floor_bracing_types
+        #read space bracing types
+        space_bracing_col = excel_index['Space bracing col']
+        cur_floor_row = cur_tower_row + input_table_offset
+        space_bracing_types = []
+        while ws_input[space_bracing_col + str(cur_floor_row)].value is not None:
+            space_bracing = ws_input[space_bracing_col + str(cur_floor_row)].value
+            space_bracing_types.append(space_bracing)
+            cur_floor_row = cur_floor_row + 1
+        cur_tower.space_bracing_types = space_bracing_types
         #read number of sides
         side = []
         side_start_col = excel_index['Bracing type start']
@@ -204,6 +214,8 @@ def get_node_info(wb,excel_index,node_num_col,parameter):
         ws = wb['Floor Bracing']
     elif parameter == 'Bracing':
         ws = wb['Bracing']
+    elif parameter == 'Space Bracing':
+        ws = wb['Space Bracing']
     elif parameter == 'Floor Plans':
         ws = wb['Floor Plans']
     horiz_col = get_column_letter(column_index_from_string(node_num_col)+1)
@@ -235,8 +247,10 @@ def get_bracing(wb,excel_index,parameter):
         ws = wb['Floor Bracing']
     elif parameter == 'Bracing':
         ws = wb['Bracing']
+    elif parameter == 'Space Bracing':
+        ws = wb['Space Bracing']
     else:
-        print('Input should be either "Floor Bracing" or "Bracing"')
+        print('Input should be either "Floor Bracing", "Space Bracing" or "Bracing"')
     all_bracing = []
     current_headings_col = headings_col
     current_section_col = section_col
