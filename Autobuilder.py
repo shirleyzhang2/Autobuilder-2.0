@@ -176,6 +176,29 @@ def build_space_bracing(SapModel, tower, all_floor_plans, all_space_bracing, flo
                 print('ERROR creating space bracing member on floor ' + str(floor_num))
     return SapModel
 
+def build_columns(SapModel, tower, all_floor_plans, floor_num, floor_height, floor_elev):
+    print('Building columns...')
+    floor_plan_num = tower.floor_plans[floor_num-1]
+    floor_plan = all_floor_plans[floor_plan_num-1]
+    x_values = []
+    y_values = []
+    for member in floor_plan.members:
+        start_node = member.start_node
+        x_values.append(start_node[0])
+        y_values.append(start_node[1])   
+    kip_in_F = 3
+    SapModel.SetPresentUnits(kip_in_F)
+    min_x = min(x_values)
+    max_x = max(x_values)
+    min_y = min(y_values)
+    max_y = max(y_values)
+    
+    [ret, name] = SapModel.FrameObj.AddByCoord(min_x, min_y, floor_elev, min_x, min_y, floor_height, PropName=Columns)
+    [ret, name] = SapModel.FrameObj.AddByCoord(min_x, max_y, floor_elev, min_x, max_y, floor_height, PropName=Columns)
+    [ret, name] = SapModel.FrameObj.AddByCoord(max_x, max_y, floor_elev, max_x, max_y, floor_height, PropName=Columns)
+    [ret, name] = SapModel.FrameObj.AddByCoord(max_x, min_y, floor_elev, max_x, min_y, floor_height, PropName=Columns)
+    return SapModel
+
 def set_base_restraints(SapModel):
     # Set fixed ends on all ground level nodes
     node_num = 1
@@ -438,14 +461,15 @@ for Tower in AllTowers:
 
     while CurFloorNum <=  NumFloors:
         print('Floor ' + str(CurFloorNum))
+        CurFloorHeight = Tower.floor_heights[CurFloorNum - 1]
+        
         if CurFloorNum <=  NumFloors:
             SapModel = build_floor_plan_and_bracing(SapModel, Tower, FloorPlans, FloorBracing, CurFloorNum, CurFloorElevation)
         if CurFloorNum <  NumFloors:
             SapModel = build_face_bracing(SapModel, Tower, FloorPlans, Bracing, CurFloorNum, CurFloorElevation)
             SapModel = build_space_bracing(SapModel, Tower, FloorPlans, SpaceBracing, CurFloorNum, CurFloorElevation)
-        #INSERT FUNCTION TO CREATE COLUMNS AT CURRENT FLOOR
+            SapModel = build_columns(SapModel, Tower, FloorPlans, CurFloorNum, CurFloorHeight, CurFloorElevation)
 
-        CurFloorHeight = Tower.floor_heights[CurFloorNum - 1]
         CurFloorElevation = CurFloorElevation + CurFloorHeight
         CurFloorNum += 1
     # Set fixed end conditions on all ground floor nodes
