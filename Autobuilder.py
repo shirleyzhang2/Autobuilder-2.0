@@ -193,10 +193,10 @@ def build_columns(SapModel, tower, all_floor_plans, floor_num, floor_height, flo
     min_y = min(y_values)
     max_y = max(y_values)
     
-    [ret, name] = SapModel.FrameObj.AddByCoord(min_x, min_y, floor_elev, min_x, min_y, floor_height, PropName=Columns)
-    [ret, name] = SapModel.FrameObj.AddByCoord(min_x, max_y, floor_elev, min_x, max_y, floor_height, PropName=Columns)
-    [ret, name] = SapModel.FrameObj.AddByCoord(max_x, max_y, floor_elev, max_x, max_y, floor_height, PropName=Columns)
-    [ret, name] = SapModel.FrameObj.AddByCoord(max_x, min_y, floor_elev, max_x, min_y, floor_height, PropName=Columns)
+    [ret, name] = SapModel.FrameObj.AddByCoord(min_x, min_y, floor_elev, min_x, min_y, floor_elev + floor_height, PropName='Columns')
+    [ret, name] = SapModel.FrameObj.AddByCoord(min_x, max_y, floor_elev, min_x, max_y, floor_elev + floor_height, PropName='Columns')
+    [ret, name] = SapModel.FrameObj.AddByCoord(max_x, max_y, floor_elev, max_x, max_y, floor_elev + floor_height, PropName='Columns')
+    [ret, name] = SapModel.FrameObj.AddByCoord(max_x, min_y, floor_elev, max_x, min_y, floor_elev + floor_height, PropName='Columns')
     return SapModel
 
 def set_base_restraints(SapModel):
