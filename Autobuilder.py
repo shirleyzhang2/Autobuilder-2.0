@@ -449,9 +449,9 @@ plt.show(block=False)
 plt.ion()
 
 
-StartTime = time.time()
 # Build all towers defined in spreadsheet
 for Tower in AllTowers:
+    StartTime = time.time()
     print('\nBuilding tower number ' + str(TowerNum))
     print('-------------------------')
     NumFloors = len(Tower.floor_plans)
