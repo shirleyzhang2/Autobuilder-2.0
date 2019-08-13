@@ -92,55 +92,80 @@ def build_floor_plan_and_bracing(SapModel, tower, all_floor_plans, all_floor_bra
     return SapModel
 
 def build_face_bracing(SapModel, tower, all_floor_plans, all_face_bracing, floor_num, floor_elev):
-    i = 1
     print('Building face bracing...')
-    while i <= len(Tower.side):
-        face_bracing_num = Tower.bracing_types[floor_num][i-1]
-        if face_bracing_num != 0:
-            face_bracing = all_face_bracing[face_bracing_num-1]
+    cur_face = 1
+    # Loop through all the faces of the floor
+    while cur_face <= len(tower.bracing_types[floor_num]):
+        face_bracing_num = tower.bracing_types[floor_num][cur_face-1]
+        face_bracing = all_face_bracing[face_bracing_num-1]
 
-            #Find scaling factors
-            floor_plan_num = tower.floor_plans[floor_num-1]
-            floor_plan = all_floor_plans[floor_plan_num-1]
-       
-            scaling_x = floor_plan.scaling_x
-            scaling_y = floor_plan.scaling_y
-            scaling_z = tower.floor_heights[floor_num-1]
-        
-            for member in face_bracing.members:
-                kip_in_F = 3
-                SapModel.SetPresentUnits(kip_in_F)
-                start_node = member.start_node
-                end_node = member.end_node
-            
-                #Create face bracing for long side
-                if i == 1 or i == 3:
-                    scaling_x_or_y = scaling_x
-                #Create face bracing for short side
-                elif i == 2 or i == 4:
-                    scaling_x_or_y = scaling_y
-
-                start_x = start_node[0] * scaling_x_or_y
-                start_y = 0
-                start_z = start_node[1] * scaling_z + floor_elev
-                end_x = end_node[0] * scaling_x_or_y
-                end_y = 0
-                end_z = end_node[1] * scaling_z + floor_elev
-                section_name = member.sec_prop 
-                #rotate coordinate system through side 1 - 4
-                if i == 1:
-                    ret = SapModel.CoordSys.SetCoordSys('CSys1', 0, 0, 0, 0, 0, 0)
-                elif i == 2:
-                    ret = SapModel.CoordSys.SetCoordSys('CSys1', scaling_x, 0, 0, 90, 0, 0)
-                elif i == 3:
-                    ret = SapModel.CoordSys.SetCoordSys('CSys1', 0, scaling_y, 0, 0, 0, 0)
-                elif i == 4:
-                    ret = SapModel.CoordSys.SetCoordSys('CSys1', 0, 0, 0, 90, 0, 0)
-
-                [ret, name] = SapModel.FrameObj.AddByCoord(start_x, start_y, start_z, end_x, end_y, end_z, '', section_name, ' ', 'CSys1')
-                if ret != 0:
-                    print('ERROR creating floor bracing member on floor ' + str(floor_num))
-            i += 1
+        #Find scaling factors
+        print('\nNUM', face_bracing_num)
+        # First find the floor plan vector on the current floor
+        floor_plan_num = tower.floor_plans[floor_num - 1]
+        floor_plan = all_floor_plans[floor_plan_num - 1]
+        floor_plan_member = floor_plan.members[cur_face - 1]
+        floor_plan_vect_x = floor_plan_member.end_node[0] - floor_plan_member.start_node[0]
+        floor_plan_vect_y = floor_plan_member.end_node[1] - floor_plan_member.start_node[1]
+        floor_plan_vect_z = 0
+        floor_plan_vect = [floor_plan_vect_x, floor_plan_vect_y, floor_plan_vect_z]
+        print('floor plan vect', floor_plan_vect)
+        # Then find the floor plan vector on the floor above
+        next_floor_plan_num = tower.floor_plans[floor_num - 1 + 1]
+        next_floor_plan = all_floor_plans[next_floor_plan_num - 1]
+        next_floor_plan_member = next_floor_plan.members[cur_face - 1]
+        next_floor_plan_vect_x = next_floor_plan_member.end_node[0] - next_floor_plan_member.start_node[0]
+        next_floor_plan_vect_y = next_floor_plan_member.end_node[1] - next_floor_plan_member.start_node[1]
+        next_floor_plan_vect_z = 0
+        next_floor_plan_vect = [next_floor_plan_vect_x, next_floor_plan_vect_y, next_floor_plan_vect_z]
+        print('next floor plan vect', next_floor_plan_vect)
+        # Then find the column vector
+        node_1 = floor_plan_member.start_node
+        node_2 = next_floor_plan_member.start_node
+        col_vect_x = node_1[0] - node_2[0]
+        col_vect_y = node_1[1] - node_2[1]
+        col_vect_z = tower.floor_heights[floor_num - 1]
+        col_vect = [col_vect_x, col_vect_y, col_vect_z]
+        print('col vect', col_vect)
+        # Find the length of each vector
+        len_floor_plan_vect = (floor_plan_vect_x**2 + floor_plan_vect_y**2 + floor_plan_vect_z**2) ** 0.5
+        len_next_floor_plan_vect = (next_floor_plan_vect_x**2 + next_floor_plan_vect_y**2 + next_floor_plan_vect_z**2) ** 0.5
+        len_col_vect = (col_vect_x**2 + col_vect_y**2 + col_vect_z**2) ** 0.5
+        # Loop through each member and find the coordinates of start and end nodes
+        for member in face_bracing.members:
+            kip_in_F = 3
+            SapModel.SetPresentUnits(kip_in_F)
+            start_node = member.start_node
+            end_node = member.end_node
+            start_horiz = start_node[0]
+            start_vert = start_node[1]
+            end_horiz = end_node[0]
+            end_vert = end_node[1]
+            # Find the horizontal width at the vertical coordinate
+            print('lens', len_floor_plan_vect, len_next_floor_plan_vect)
+            start_horiz_width = len_floor_plan_vect + (len_next_floor_plan_vect - len_floor_plan_vect) * start_vert
+            end_horiz_width = len_floor_plan_vect + (len_next_floor_plan_vect - len_floor_plan_vect) * end_vert
+            print('end vert', end_vert)
+            print('Widths', start_horiz_width, end_horiz_width)
+            # Apply vertical translation. Add the translation to the start node of the floor plan member
+            print('start', start_node)
+            print('end', end_node)
+            start_vtrans = [floor_plan_member.start_node[0] + col_vect_x * start_vert, floor_plan_member.start_node[1] + col_vect_y * start_vert, floor_elev + col_vect_z * start_vert]
+            end_vtrans = [floor_plan_member.start_node[0] + floor_plan_vect_x * end_vert, floor_plan_member.start_node[1] + floor_plan_vect_y * end_vert, floor_elev + col_vect_z * end_vert]
+            print(floor_plan_member.start_node)
+            print('vtrans', start_vtrans, end_vtrans)
+            # Apply horizontal translation
+            start_vhtrans = [start_vtrans[0] + floor_plan_vect_x/len_floor_plan_vect * start_horiz_width * start_horiz,
+                            start_vtrans[1] + floor_plan_vect_y/len_floor_plan_vect * start_horiz_width * start_horiz, start_vtrans[2]]
+            end_vhtrans = [end_vtrans[0] + floor_plan_vect_x/len_floor_plan_vect * end_horiz_width * end_horiz,
+                            end_vtrans[1] + floor_plan_vect_y/len_floor_plan_vect * end_horiz_width * start_horiz, end_vtrans[2]]
+            print('vhtrans', start_vhtrans, end_vhtrans)
+            # Create member in SAP2000
+            [ret, name] = SapModel.FrameObj.AddByCoord(start_vhtrans[0], start_vhtrans[1], start_vhtrans[2], end_vhtrans[0], end_vhtrans[1], end_vhtrans[2],
+                                                       member.sec_prop)
+            if ret != 0:
+                print('ERROR creating floor bracing member on floor ' + str(floor_num))
+        cur_face += 1
     return SapModel
 
 def build_space_bracing(SapModel, tower, all_floor_plans, all_space_bracing, floor_num, floor_elev):
