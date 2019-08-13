@@ -30,7 +30,7 @@ def build_floor_plan_and_bracing(SapModel, tower, all_floor_plans, all_floor_bra
         end_y = end_node[1]
         end_z = floor_elev
         section_name = member.sec_prop
-        [ret, name] = SapModel.FrameObj.AddByCoord(start_x, start_y, start_z, end_x, end_y, end_z, PropName=section_name)
+        [ret, name] = SapModel.FrameObj.AddByCoord(start_x, start_y, start_z, end_x, end_y, end_z, '', PropName=section_name)
         if ret != 0:
             print('ERROR creating floor plan member on floor ' + str(floor_num))
     #assign masses to mass nodes and create steel rod
@@ -58,14 +58,14 @@ def build_floor_plan_and_bracing(SapModel, tower, all_floor_plans, all_floor_bra
     #Create steel rod
     kip_in_F = 3
     SapModel.SetPresentUnits(kip_in_F)
-    [ret, name1] = SapModel.FrameObj.AddByCoord(mass_node_1[0], mass_node_1[1], floor_elev, mass_node_2[0], mass_node_2[1], floor_elev, PropName='Steel rod')
+    [ret, name1] = SapModel.FrameObj.AddByCoord(mass_node_1[0], mass_node_1[1], floor_elev, mass_node_2[0], mass_node_2[1], floor_elev, '', PropName='Steel rod')
     if ret !=0:
         print('ERROR creating steel rod on floor ' + str(floor_num))
     #Create floor load forces
     N_m_C = 10
     SapModel.SetPresentUnits(N_m_C)
-    ret = SapModel.PointObj.SetLoadForce(mass_name_1, 'DEAD', [0, 0, mass_per_node*9.81, 0, 0, 0])
-    ret = SapModel.PointObj.SetLoadForce(mass_name_2, 'DEAD', [0, 0, mass_per_node*9.81, 0, 0, 0])
+    ret = SapModel.PointObj.SetLoadForce(mass_name_1, 'DEAD', [0, 0, -1 * mass_per_node*9.81, 0, 0, 0])
+    ret = SapModel.PointObj.SetLoadForce(mass_name_2, 'DEAD', [0, 0, -1 * mass_per_node*9.81, 0, 0, 0])
     #create floor bracing
     floor_bracing_num = tower.floor_bracing_types[floor_num-1]
     floor_bracing = all_floor_bracing[floor_bracing_num-1]
@@ -86,7 +86,7 @@ def build_floor_plan_and_bracing(SapModel, tower, all_floor_plans, all_floor_bra
         end_y = end_node[1] * scaling_y
         end_z = floor_elev
         section_name = member.sec_prop
-        [ret, name] = SapModel.FrameObj.AddByCoord(start_x, start_y, start_z, end_x, end_y, end_z, PropName=section_name)
+        [ret, name] = SapModel.FrameObj.AddByCoord(start_x, start_y, start_z, end_x, end_y, end_z, '', PropName=section_name)
         if ret != 0:
             print('ERROR creating floor bracing member on floor ' + str(floor_num))
     return SapModel
@@ -137,7 +137,7 @@ def build_face_bracing(SapModel, tower, all_floor_plans, all_face_bracing, floor
                 elif i == 4:
                     ret = SapModel.CoordSys.SetCoordSys('CSys1', 0, 0, 0, 90, 0, 0)
 
-                [ret, name] = SapModel.FrameObj.AddByCoord(start_x, start_y, start_z, end_x, end_y, end_z, ' ', section_name, ' ', 'CSys1')
+                [ret, name] = SapModel.FrameObj.AddByCoord(start_x, start_y, start_z, end_x, end_y, end_z, '', section_name, ' ', 'CSys1')
                 if ret != 0:
                     print('ERROR creating floor bracing member on floor ' + str(floor_num))
             i += 1
@@ -171,7 +171,7 @@ def build_space_bracing(SapModel, tower, all_floor_plans, all_space_bracing, flo
             end_z = scaling_z + floor_elev
             section_name = member.sec_prop 
 
-            [ret, name] = SapModel.FrameObj.AddByCoord(start_x, start_y, start_z, end_x, end_y, end_z, PropName=section_name)
+            [ret, name] = SapModel.FrameObj.AddByCoord(start_x, start_y, start_z, end_x, end_y, end_z, '', PropName=section_name)
             if ret != 0:
                 print('ERROR creating space bracing member on floor ' + str(floor_num))
     return SapModel
@@ -193,10 +193,18 @@ def build_columns(SapModel, tower, all_floor_plans, floor_num, floor_height, flo
     min_y = min(y_values)
     max_y = max(y_values)
     
-    [ret, name] = SapModel.FrameObj.AddByCoord(min_x, min_y, floor_elev, min_x, min_y, floor_elev + floor_height, PropName='Columns')
-    [ret, name] = SapModel.FrameObj.AddByCoord(min_x, max_y, floor_elev, min_x, max_y, floor_elev + floor_height, PropName='Columns')
-    [ret, name] = SapModel.FrameObj.AddByCoord(max_x, max_y, floor_elev, max_x, max_y, floor_elev + floor_height, PropName='Columns')
-    [ret, name] = SapModel.FrameObj.AddByCoord(max_x, min_y, floor_elev, max_x, min_y, floor_elev + floor_height, PropName='Columns')
+    [ret, name] = SapModel.FrameObj.AddByCoord(min_x, min_y, floor_elev, min_x, min_y, floor_elev + floor_height, '', PropName='Columns')
+    if ret != 0:
+        print('ERROR creating column on floor ' + str(floor_num))
+    [ret, name] = SapModel.FrameObj.AddByCoord(min_x, max_y, floor_elev, min_x, max_y, floor_elev + floor_height, '', PropName='Columns')
+    if ret != 0:
+        print('ERROR creating column on floor ' + str(floor_num))
+    [ret, name] = SapModel.FrameObj.AddByCoord(max_x, max_y, floor_elev, max_x, max_y, floor_elev + floor_height, '', PropName='Columns')
+    if ret != 0:
+        print('ERROR creating column on floor ' + str(floor_num))
+    [ret, name] = SapModel.FrameObj.AddByCoord(max_x, min_y, floor_elev, max_x, min_y, floor_elev + floor_height, '', PropName='Columns')
+    if ret != 0:
+        print('ERROR creating column on floor ' + str(floor_num))
     return SapModel
 
 def set_base_restraints(SapModel):
@@ -260,6 +268,7 @@ def run_analysis(SapModel):
     g = 9.81
     ret = SapModel.Results.JointAccAbs(roof_node_name, 0)
     max_and_min_acc = ret[7]
+    print(max_and_min_acc)
     max_pos_acc = max_and_min_acc[0]
     min_neg_acc = max_and_min_acc[1]
     if abs(max_pos_acc) >= abs(min_neg_acc):
@@ -291,13 +300,16 @@ def run_analysis(SapModel):
     if ret[0] != 0:
         print('ERROR getting base reaction forces')
     base_react = ret[7][0]
-    total_weight = base_react / 9.81
+    total_weight = abs(base_react / 9.81)
     #convert to lb
     total_weight = total_weight / 0.45359237
     return max_acc, max_drift, total_weight
 
 
-def get_FABI(max_acc, max_disp, footprint, weight):
+def get_FABI(max_acc, max_disp, footprint, weight, floor_masses):
+    # Subtract weights. Weight is initially in lb, convert to kg
+    print(weight, sum(floor_masses))
+    weight = (weight * 0.45359237 - sum(floor_masses)) / 0.45359237
     design_life = 100 #years
     construction_cost = 2500000*(weight**2)+6*(10**6)
     land_cost = 35000 * footprint
@@ -327,7 +339,7 @@ def get_FABI(max_acc, max_disp, footprint, weight):
     annual_economic_loss_2 = economic_loss_2/return_period_2
     annual_seismic_cost = annual_economic_loss_1 + annual_economic_loss_2
     fabi = annual_revenue - annual_building_cost - annual_seismic_cost
-    return fabi
+    return annual_building_cost + annual_seismic_cost
 
 def write_to_excel(wb, all_fabi, save_loc):
     print('Writing all results to Excel...')
@@ -463,7 +475,7 @@ for Tower in AllTowers:
         print('Floor ' + str(CurFloorNum))
         CurFloorHeight = Tower.floor_heights[CurFloorNum - 1]
         
-        if CurFloorNum <=  NumFloors:
+        if CurFloorNum <=  NumFloors and CurFloorElevation != 0:
             SapModel = build_floor_plan_and_bracing(SapModel, Tower, FloorPlans, FloorBracing, CurFloorNum, CurFloorElevation)
         if CurFloorNum <  NumFloors:
             SapModel = build_face_bracing(SapModel, Tower, FloorPlans, Bracing, CurFloorNum, CurFloorElevation)
@@ -482,7 +494,7 @@ for Tower in AllTowers:
     #run analysis and get weight and acceleration
     [MaxAcc, MaxDisp, Weight] = run_analysis(SapModel)
     #Calculate model FABI
-    AllFABI.append(get_FABI(MaxAcc, MaxDisp, Tower.footprint, Weight))
+    AllFABI.append(get_FABI(MaxAcc, MaxDisp, Tower.footprint, Weight, Tower.floor_masses))
     ##IS THIS FABI OR SEISMIC COST??
     #Print results to spreadsheet
     #Unlock model
