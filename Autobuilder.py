@@ -448,18 +448,17 @@ ComputeTimes = []
 # Define load cases
 SapModel = define_loading(SapModel, TimeHistoryLoc, SaveLoc)
 # Start scatter plot of FABI
+plt.ion()
+fig = plt.figure()
+ax = plt.subplot(1,1,1)
+ax.set_xlabel('Tower Number')
+ax.set_ylabel('FABI')
 xdata = []
 ydata = []
-axes = plt.gca()
-axes.set_xlim(1, len(AllTowers))
-axes.set_ylim(bottom=0)
-ScatterPlot, = axes.plot(xdata, ydata, 'ro')
-plt.grid(True, 'both', 'both')
-plt.xlabel('Tower Number')
-plt.ylabel('FABI')
-plt.show(block=False)
-plt.ion()
+ax.plot(xdata, ydata, 'ro', markersize=10)
+plt.grid(True)
 
+plt.show(block=False)
 
 # Build all towers defined in spreadsheet
 for Tower in AllTowers:
@@ -538,17 +537,12 @@ for Tower in AllTowers:
     # Add FABI to scatter plot
     xdata.append(TowerNum)
     ydata.append(AllFABI[TowerNum-1])
-    ScatterPlot.set_xdata(xdata)
-    ScatterPlot.set_ydata(ydata)
-    plt.xlim(0, TowerNum + 1)
-    #plt.ylim(0, max(AllFABI) + max(AllFABI) / 4)
-    plt.ylim(0, min(AllFABI) + min(AllFABI) / 4)
+    ax.lines[0].set_data(xdata,ydata)
+    ax.relim()
+    ax.autoscale_view()
     plt.xticks(numpy.arange(min(xdata), max(xdata)+1, 1.0))
     plt.title('Average time per tower: ' + str(AverageComputeTime) + ' seconds\n' + 'Estimated time remaining: ' + str(EstimatedTimeRemaining) + ' ' + TimeUnitEstTime + '\nElapsed time so far: ' + str(ElapsedTime) + ' ' + TimeUnitElaTime)
-    plt.draw()
-    plt.pause(1e-6)
-    plt.show(block=False)
-    plt.ion()
+    fig.canvas.flush_events()
     # Increment tower number
     TowerNum += 1
 
