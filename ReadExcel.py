@@ -21,9 +21,10 @@ class Tower:
         self.side = side
 
 class BracingScheme:
-    def __init__(self, number=1, face=1, members=[]):
+    def __init__(self, number=1, face=1, members=[], mass_nodes=[]):
         self.number = number
         self.members = members
+        self.mass_nodes = mass_nodes
 
 class FloorPlan:
     def __init__(self, number=1, members=[], mass_nodes=[], scaling_x = 0, scaling_y = 0, area = 0):
@@ -228,10 +229,9 @@ def get_node_info(wb,excel_index,node_num_col,parameter):
     while ws[node_num_col + str(current_row)].value is not None:
         horiz = ws[horiz_col + str(current_row)].value
         vert = ws[vert_col + str(current_row)].value
-        if parameter == 'Floor Plans':
-            mass_at_node = ws[mass_col + str(current_row)].value
-            if mass_at_node ==1:
-                mass_nodes.append([horiz,vert])
+        mass_at_node = ws[mass_col + str(current_row)].value
+        if mass_at_node ==1:
+            mass_nodes.append([horiz,vert])
         #enter the new entry into the list
         nodes.append([horiz, vert])
         current_row = current_row + 1
@@ -258,7 +258,7 @@ def get_bracing(wb,excel_index,parameter):
     current_end_node_col = end_node_col
     i = 1
     while ws[current_headings_col+str(4)].value is not None:
-        nodes = get_node_info(wb, excel_index, current_headings_col, parameter)[0]
+        nodes, mass_nodes = get_node_info(wb, excel_index, current_headings_col, parameter)
         current_row = start_row
         j = 1
         cur_members = []
@@ -271,12 +271,12 @@ def get_bracing(wb,excel_index,parameter):
             cur_members.append(Member(start_node, end_node, section))
             current_row = current_row + 1
             j += 1
-        all_bracing.append(BracingScheme(number=i, members=cur_members))
+        all_bracing.append(BracingScheme(number=i, members=cur_members, mass_nodes=mass_nodes))
         i += 1
-        current_headings_col = get_column_letter(column_index_from_string(current_headings_col)+8)
-        current_section_col = get_column_letter(column_index_from_string(current_section_col)+8)
-        current_start_node_col = get_column_letter(column_index_from_string(current_start_node_col)+8)
-        current_end_node_col = get_column_letter(column_index_from_string(current_end_node_col)+8)
+        current_headings_col = get_column_letter(column_index_from_string(current_headings_col)+9)
+        current_section_col = get_column_letter(column_index_from_string(current_section_col)+9)
+        current_start_node_col = get_column_letter(column_index_from_string(current_start_node_col)+9)
+        current_end_node_col = get_column_letter(column_index_from_string(current_end_node_col)+9)
     return all_bracing
 
 def get_floor_plans(wb,excel_index):
@@ -295,7 +295,6 @@ def get_floor_plans(wb,excel_index):
     while ws[current_headings_col + str(4)].value is not None:
         [nodes, mass_nodes] = get_node_info(wb, excel_index, current_headings_col, 'Floor Plans')
         current_row = start_row
-
         cur_members = []
         max_node_x = 0
         max_node_y = 0
