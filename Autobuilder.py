@@ -187,7 +187,7 @@ def build_space_bracing(SapModel, tower, all_floor_plans, all_space_bracing, flo
     return SapModel
 
 
-def build_columns(SapModel, tower, all_floor_plans, floor_num, floor_height, floor_elev):
+def build_columns(SapModel, tower, all_floor_plans, all_sections, floor_num, floor_height, floor_elev):
     print('Building columns...')
     floor_plan_num = tower.floor_plans[floor_num-1]
     floor_plan = all_floor_plans[floor_plan_num-1]
@@ -203,17 +203,19 @@ def build_columns(SapModel, tower, all_floor_plans, floor_num, floor_height, flo
     max_x = max(x_values)
     min_y = min(y_values)
     max_y = max(y_values)
+    section_num = tower.col_props[1]
+    section_name = all_sections['Section ' + str(section_num)]['Name']
     
-    [ret, name] = SapModel.FrameObj.AddByCoord(min_x, min_y, floor_elev, min_x, min_y, floor_elev + floor_height, '', PropName='Columns')
+    [ret, name] = SapModel.FrameObj.AddByCoord(min_x, min_y, floor_elev, min_x, min_y, floor_elev + floor_height, '', PropName=section_name)
     if ret != 0:
         print('ERROR creating column on floor ' + str(floor_num))
-    [ret, name] = SapModel.FrameObj.AddByCoord(min_x, max_y, floor_elev, min_x, max_y, floor_elev + floor_height, '', PropName='Columns')
+    [ret, name] = SapModel.FrameObj.AddByCoord(min_x, max_y, floor_elev, min_x, max_y, floor_elev + floor_height, '', PropName=section_name)
     if ret != 0:
         print('ERROR creating column on floor ' + str(floor_num))
-    [ret, name] = SapModel.FrameObj.AddByCoord(max_x, max_y, floor_elev, max_x, max_y, floor_elev + floor_height, '', PropName='Columns')
+    [ret, name] = SapModel.FrameObj.AddByCoord(max_x, max_y, floor_elev, max_x, max_y, floor_elev + floor_height, '', PropName=section_name)
     if ret != 0:
         print('ERROR creating column on floor ' + str(floor_num))
-    [ret, name] = SapModel.FrameObj.AddByCoord(max_x, min_y, floor_elev, max_x, min_y, floor_elev + floor_height, '', PropName='Columns')
+    [ret, name] = SapModel.FrameObj.AddByCoord(max_x, min_y, floor_elev, max_x, min_y, floor_elev + floor_height, '', PropName=section_name)
     if ret != 0:
         print('ERROR creating column on floor ' + str(floor_num))
     return SapModel
@@ -504,7 +506,7 @@ for Tower in AllTowers:
         if CurFloorNum <  NumFloors:
             SapModel = build_face_bracing(SapModel, Tower, FloorPlans, Bracing, CurFloorNum, CurFloorElevation)
             SapModel = build_space_bracing(SapModel, Tower, FloorPlans, SpaceBracing, CurFloorNum, CurFloorElevation)
-            SapModel = build_columns(SapModel, Tower, FloorPlans, CurFloorNum, CurFloorHeight, CurFloorElevation)
+            SapModel = build_columns(SapModel, Tower, FloorPlans, Sections, CurFloorNum, CurFloorHeight, CurFloorElevation)
 
         CurFloorElevation = CurFloorElevation + CurFloorHeight
         CurFloorNum += 1
