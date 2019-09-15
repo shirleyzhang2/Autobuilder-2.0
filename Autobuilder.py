@@ -19,26 +19,26 @@ def build_floor_plan_and_bracing(SapModel, tower, all_floor_plans, all_floor_bra
     floor_plan = all_floor_plans[floor_plan_num-1]
     floor_bracing_num = tower.floor_bracing_types[floor_num-1]
     floor_bracing = all_floor_bracing[floor_bracing_num-1]
+    # Find scaling factors
+    scaling_x = floor_plan.scaling_x * tower.x_width
+    scaling_y = floor_plan.scaling_y * tower.y_width
     #Create members for floor plan
     for member in floor_plan.members:
         kip_in_F = 3
         SapModel.SetPresentUnits(kip_in_F)
         start_node = member.start_node
         end_node = member.end_node
-        start_x = start_node[0]
-        start_y = start_node[1]
+        start_x = start_node[0] * scaling_x
+        start_y = start_node[1] * scaling_y
         start_z = floor_elev
-        end_x = end_node[0]
-        end_y = end_node[1]
+        end_x = end_node[0] * scaling_x
+        end_y = end_node[1] * scaling_y
         end_z = floor_elev
         section_name = member.sec_prop
         [ret, name] = SapModel.FrameObj.AddByCoord(start_x, start_y, start_z, end_x, end_y, end_z, '', PropName=section_name)
         if ret != 0:
             print('ERROR creating floor plan member on floor ' + str(floor_num))
     # Create members for floor bracing
-    # Find scaling factors
-    scaling_x = floor_plan.scaling_x
-    scaling_y = floor_plan.scaling_y
     # Create floor bracing
     print('Building floor bracing...')
     for member in floor_bracing.members:
@@ -58,23 +58,18 @@ def build_floor_plan_and_bracing(SapModel, tower, all_floor_plans, all_floor_bra
             print('ERROR creating floor bracing member on floor ' + str(floor_num))
     # Assign masses to mass nodes and create steel rod
     floor_mass = tower.floor_masses[floor_num-1]
+    # If at the top floor of tower, assign masses to floor bracing. Else, assign to floor plan and create steel rod
     if floor_num != len(Tower.floor_plans):
         mass_nodes = floor_plan.mass_nodes
         mass_per_node = floor_mass / len(mass_nodes)
     else:
         mass_nodes = floor_bracing.mass_nodes
-        for coordinate in mass_nodes:
-            coordinate[0] = coordinate[0] * scaling_x
-            coordinate[1] = coordinate[1] * scaling_y
         mass_per_node = floor_mass / len(mass_nodes)
-    print('MASS NODES', mass_nodes)
     # Create the mass node point
     for mass_node in mass_nodes:
         kip_in_F = 3
         SapModel.SetPresentUnits(kip_in_F)
-        print("MASS NODE", mass_node)
-        [ret, mass_name] = SapModel.PointObj.AddCartesian(mass_node[0],mass_node[1],floor_elev,MergeOff=False)
-        print('MASS NAME', mass_name)
+        [ret, mass_name] = SapModel.PointObj.AddCartesian(mass_node[0]* scaling_x,mass_node[1]*scaling_y,floor_elev,MergeOff=False)
         if ret != 0:
             print('ERROR setting mass nodes on floor ' + str(floor_num))
         #Assign masses to the mass nodes
@@ -93,7 +88,7 @@ def build_floor_plan_and_bracing(SapModel, tower, all_floor_plans, all_floor_bra
     if floor_num != len(Tower.floor_plans):
         kip_in_F = 3
         SapModel.SetPresentUnits(kip_in_F)
-        [ret, name1] = SapModel.FrameObj.AddByCoord(mass_nodes[0][0], mass_nodes[0][1], floor_elev, mass_nodes[1][0], mass_nodes[1][1], floor_elev, '', PropName='Steel rod')
+        [ret, name1] = SapModel.FrameObj.AddByCoord(mass_nodes[0][0]*scaling_x, mass_nodes[0][1]*scaling_y, floor_elev, mass_nodes[1][0]*scaling_x, mass_nodes[1][1]*scaling_y, floor_elev, '', PropName='Steel rod')
         if ret !=0:
             print('ERROR creating steel rod on floor ' + str(floor_num))
 
@@ -112,8 +107,8 @@ def build_face_bracing(SapModel, tower, all_floor_plans, all_face_bracing, floor
             floor_plan_num = tower.floor_plans[floor_num-1]
             floor_plan = all_floor_plans[floor_plan_num-1]
        
-            scaling_x = floor_plan.scaling_x
-            scaling_y = floor_plan.scaling_y
+            scaling_x = floor_plan.scaling_x * tower.x_width
+            scaling_y = floor_plan.scaling_y * tower.y_width
             scaling_z = tower.floor_heights[floor_num-1]
         
             for member in face_bracing.members:
@@ -163,8 +158,8 @@ def build_space_bracing(SapModel, tower, all_floor_plans, all_space_bracing, flo
         floor_plan_num = tower.floor_plans[floor_num-1]
         floor_plan = all_floor_plans[floor_plan_num-1]
        
-        scaling_x = floor_plan.scaling_x
-        scaling_y = floor_plan.scaling_y
+        scaling_x = floor_plan.scaling_x * tower.x_width
+        scaling_y = floor_plan.scaling_y * tower.y_width
         scaling_z = tower.floor_heights[floor_num-1]
         
         for member in space_bracing.members:
@@ -199,10 +194,10 @@ def build_columns(SapModel, tower, all_floor_plans, all_sections, floor_num, flo
         y_values.append(start_node[1])   
     kip_in_F = 3
     SapModel.SetPresentUnits(kip_in_F)
-    min_x = min(x_values)
-    max_x = max(x_values)
-    min_y = min(y_values)
-    max_y = max(y_values)
+    min_x = min(x_values) * tower.x_width
+    max_x = max(x_values) * tower.x_width
+    min_y = min(y_values) * tower.y_width
+    max_y = max(y_values) * tower.y_width
     section_num = tower.col_props[1]
     section_name = all_sections['Section ' + str(section_num)]['Name']
     
@@ -295,7 +290,6 @@ def run_analysis(SapModel):
     g = 9.81
     ret = SapModel.Results.JointAccAbs(roof_node_name, 0)
     max_and_min_acc = ret[7]
-    print(max_and_min_acc)
     max_pos_acc = max_and_min_acc[0]
     min_neg_acc = max_and_min_acc[1]
     if abs(max_pos_acc) >= abs(min_neg_acc):
@@ -335,7 +329,6 @@ def run_analysis(SapModel):
 
 def get_FABI(max_acc, max_disp, footprint, weight, floor_masses):
     # Subtract weights. Weight is initially in lb, convert to kg
-    print(weight, sum(floor_masses))
     weight = (weight * 0.45359237 - sum(floor_masses)) / 0.45359237
     design_life = 100 #years
     construction_cost = 2500000*(weight**2)+6*(10**6)

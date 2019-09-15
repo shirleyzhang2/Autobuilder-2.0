@@ -6,10 +6,13 @@ from openpyxl.utils.cell import get_column_letter, column_index_from_string
 import string
 
 class Tower:
-    def __init__(self, number, member_mat, rod_mat, footprint, floor_plans, floor_heights, col_props, bracing_types, floor_masses, floor_bracing_types, space_bracing_types, side):
+    def __init__(self, number=0, member_mat='BALSA', rod_mat='STEEL', x_width=0, y_width=0, footprint=0, floor_plans=[], floor_heights=[],
+                 col_props=[], bracing_types=[], floor_masses=[], floor_bracing_types=[], space_bracing_types=[], side=0):
         self.number = number
         self.member_mat = member_mat
         self.rod_mat = rod_mat
+        self.x_width = x_width
+        self.y_width = y_width
         self.footprint = footprint
         self.floor_plans = floor_plans
         self.floor_heights = floor_heights
@@ -19,6 +22,7 @@ class Tower:
         self.floor_bracing_types = floor_bracing_types
         self.space_bracing_types = space_bracing_types
         self.side = side
+
 
 class BracingScheme:
     def __init__(self, number=1, face=1, members=[], mass_nodes=[]):
@@ -104,7 +108,7 @@ def read_input_table(wb,excel_index):
     cur_tower_num = 1
     while cur_tower_num <= total_towers:
         #create tower object
-        cur_tower = Tower(0,0,0,0,0,0,0,0,0,0,0,0)
+        cur_tower = Tower()
         #read member material
         member_mat = ws_input['B'+str(cur_tower_row + 1)].value
         cur_tower.member_mat = member_mat
@@ -114,6 +118,12 @@ def read_input_table(wb,excel_index):
         #read building footprint in square inches
         footprint = ws_input['B'+str(cur_tower_row + 3)].value
         cur_tower.footprint = footprint
+        #read tower x width
+        x_width = ws_input['B' + str(cur_tower_row + 4)].value
+        cur_tower.x_width = x_width
+        #read tower y width
+        y_width = ws_input['B' + str(cur_tower_row + 5)].value
+        cur_tower.y_width = y_width
         #read floor plans
         floor_pln_col = excel_index['Floor plan col']
         cur_floor_row = cur_tower_row + input_table_offset
