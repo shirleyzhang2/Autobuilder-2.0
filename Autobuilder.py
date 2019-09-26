@@ -283,7 +283,7 @@ def run_analysis(SapModel):
         if z > z_max:
             roof_node_name = node_name
             z_max = z
-    #Retrieve max accelerations
+    #Retrieve max ACCELERATION
     #Set units to metres
     N_m_C = 10
     SapModel.SetPresentUnits(N_m_C)
@@ -298,7 +298,7 @@ def run_analysis(SapModel):
         max_acc = abs(min_neg_acc)/g
     else:
         print('Could not find max acceleration')
-    #Get joint displacement
+    #Get joint DISPLACEMENT
     #Set units to millimetres
     N_mm_C = 9
     SapModel.SetPresentUnits(N_mm_C)
@@ -312,7 +312,7 @@ def run_analysis(SapModel):
         max_drift = abs(min_neg_disp)
     else:
         print('Could not find max drift')
-    #Get weight
+    #Get WEIGHT
     #Get base reactions
     SapModel.Results.Setup.DeselectAllCasesAndCombosForOutput()
     SapModel.Results.Setup.SetCaseSelectedForOutput('DEAD')
@@ -324,26 +324,21 @@ def run_analysis(SapModel):
     total_weight = abs(base_react / 9.81)
     #convert to lb
     total_weight = total_weight / 0.45359237
-    return max_acc, max_drift, total_weight
+    #Get PERIOD
+
+    # Get BASE SHEAR
 
 
-def get_FABI(max_acc, max_disp, footprint, weight, floor_masses):
+    return max_acc, max_drift, total_weight, period, basesh
+
+
+def get_costs(max_acc, max_disp, footprint, weight, floor_masses):
     # Subtract weights. Weight is initially in lb, convert to kg
     weight = (weight * 0.45359237 - sum(floor_masses)) / 0.45359237
     design_life = 100 #years
     construction_cost = 2500000*(weight**2)+6*(10**6)
     land_cost = 35000 * footprint
     annual_building_cost = (land_cost + construction_cost) / design_life
-    floor_num = len(Tower.floor_heights)
-    if floor_num <= 2:
-        annual_revenue = 250 * floor_num
-    elif floor_num <= 9:
-        annual_revenue = 250 * 2 + 175 * (floor_num - 2)
-    elif floor_num <= 15:
-        annual_revenue = 250 * 2 + 175 * 7 + 225 * (floor_num - 9)
-    else:
-        annual_revenue = 250 * 2 + 175 * 7 + 225 * 6 + 275 * (floor_num - 15)
-    #annual_revenue = 430300
     equipment_cost = 20000000
     return_period_1 = 50
     return_period_2 = 300
@@ -358,22 +353,34 @@ def get_FABI(max_acc, max_disp, footprint, weight, floor_masses):
     economic_loss_2 = structural_damage_2*construction_cost + equipment_damage_2*equipment_cost
     annual_economic_loss_2 = economic_loss_2/return_period_2
     annual_seismic_cost = annual_economic_loss_1 + annual_economic_loss_2
-    fabi = annual_revenue - annual_building_cost - annual_seismic_cost
-    return annual_building_cost + annual_seismic_cost
+    return annual_building_cost, annual_seismic_cost
 
 
-def write_to_excel(wb, all_fabi, save_loc):
+def write_to_excel(wb, all_costs, all_acc, all_disp, all_weight, all_period, all_basesh, all_constcost, all_seisscore,save_loc):
     print('Writing all results to Excel...')
     filepath = save_loc + '/Results.xlsx'
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws['A1'] = 'Tower #'
-    ws['B1'] = 'FABI'
-    fabi_num = 1
-    for fabi in all_fabi:
-        ws['A' + str(fabi_num + 1)].value = fabi_num
-        ws['B' + str(fabi_num + 1)].value = fabi
-        fabi_num += 1
+    ws['A1'].value = 'Tower #'
+    ws['B1'].value = 'Annual Building Cost + Annual Seismic Cost'
+    ws['C1'].value = 'Acceleration (g)'
+    ws['D1'].value = 'Displacement (mm)'
+    ws['E1'].value = 'Weight (N)'
+    ws['F1'].value = 'Period (s)'
+    ws['G1'].value = 'Base Shear (N)'
+    ws['H1'].value = 'Construction Cost'
+    ws['I1'].value = 'Seismic Score'
+
+    for tower_num in range(1, len(all_costs)):
+        ws['A' + str(tower_num + 1)].value = tower_num
+        ws['B' + str(tower_num + 1)].value = all_costs(tower_num - 1)
+        ws['C' + str(tower_num + 1)].value = all_acc(tower_num - 1)
+        ws['D' + str(tower_num + 1)].value = all_disp(tower_num - 1)
+        ws['E' + str(tower_num + 1)].value = all_weight(tower_num - 1)
+        ws['F' + str(tower_num + 1)].value = all_period(tower_num - 1)
+        ws['G' + str(tower_num + 1)].value = all_basesh(tower_num - 1)
+        ws['H' + str(tower_num + 1)].value = all_constcost(tower_num - 1)
+        ws['I' + str(tower_num + 1)].value = all_seisscore(tower_num - 1)
     wb.save(filepath)
 
 
@@ -462,13 +469,13 @@ for Section, SecProps in Sections.items():
     if ret != 0:
         print('ERROR creating section property ' + SecName)
 
-AllFABI = []
+AllCosts = []
 TowerNum = 1
 ComputeTimes = []
 
 # Define load cases
 SapModel = define_loading(SapModel, TimeHistoryLoc, SaveLoc)
-# Start scatter plot of FABI
+# Start scatter plots of cost, acc, disp, mode
 plt.ion()
 fig = plt.figure()
 ax = plt.subplot(1,1,1)
@@ -515,9 +522,7 @@ for Tower in AllTowers:
     #run analysis and get weight and acceleration
     [MaxAcc, MaxDisp, Weight] = run_analysis(SapModel)
     #Calculate model FABI
-    AllFABI.append(get_FABI(MaxAcc, MaxDisp, Tower.footprint, Weight, Tower.floor_masses))
-    ##IS THIS FABI OR SEISMIC COST??
-    #Print results to spreadsheet
+    AllCosts.append(get_costs(MaxAcc, MaxDisp, Tower.footprint, Weight, Tower.floor_masses))
     #Unlock model
     SapModel.SetModelIsLocked(False)
     # Delete everything in the model
@@ -554,24 +559,25 @@ for Tower in AllTowers:
     #Round the times to the nearest 0.1
     AverageComputeTime = int(AverageComputeTime/1) + round(AverageComputeTime - int(AverageComputeTime/1),1)
     EstimatedTimeRemaining = int(EstimatedTimeRemaining/1) + round(EstimatedTimeRemaining - int(EstimatedTimeRemaining/1),1)
-    ElapsedTime = int(ElapsedTime/1) + round(ElapsedTime - int(ElapsedTime/1),1)
+    ElapsedTime = int(ElapsedTime/1) + round(ElapsedTime - int(ElapsedTime/1), 1)
 
-    # Add FABI to scatter plot
+    # Add cost to scatter plot
     xdata.append(TowerNum)
-    ydata.append(AllFABI[TowerNum-1])
+    ydata.append(AllCosts[TowerNum-1])
     ax.lines[0].set_data(xdata,ydata)
     ax.relim()
     ax.autoscale_view()
     plt.xticks(numpy.arange(min(xdata), max(xdata)+1, 1.0))
     plt.title('Average time per tower: ' + str(AverageComputeTime) + ' seconds\n' + 'Estimated time remaining: ' + str(EstimatedTimeRemaining) + ' ' + TimeUnitEstTime + '\nElapsed time so far: ' + str(ElapsedTime) + ' ' + TimeUnitElaTime)
     fig.canvas.flush_events()
+
     # Increment tower number
     TowerNum += 1
 
 print('\n\nFinished constructing all towers.')
 
 # Write all results to excel spreadsheet
-write_to_excel(wb, AllFABI, SaveLoc)
+write_to_excel(wb, AllCosts, SaveLoc)
 # Close SAP2000
 print('Closing SAP2000...')
 SapObject.ApplicationExit(False)
