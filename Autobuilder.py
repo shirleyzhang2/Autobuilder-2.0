@@ -238,23 +238,40 @@ def set_base_restraints(SapModel):
     return SapModel
 
 
-def define_loading(SapModel, time_history_loc, save_loc):
+def define_loading(SapModel, time_history_loc_1, time_history_loc_2, save_loc):
     print('Defining loading...')
+    ##for GM1##
     # Define time history function
     N_m_C = 10
     SapModel.SetPresentUnits(N_m_C)
-    SapModel.Func.FuncTH.SetFromFile('GM', time_history_loc, 1, 0, 1, 2, True)
+    SapModel.Func.FuncTH.SetFromFile('GM1', time_history_loc_1, 1, 0, 1, 2, True)
     # Set the time history load case
     N_m_C = 10
     SapModel.SetPresentUnits(N_m_C)
-    SapModel.LoadCases.ModHistLinear.SetCase('GM')
-    SapModel.LoadCases.ModHistLinear.SetMotionType('GM', 1)
-    SapModel.LoadCases.ModHistLinear.SetLoads('GM', 1, ['Accel'], ['U1'], ['GM'], [1], [1], [0], ['Global'], [0])
-    SapModel.LoadCases.ModHistLinear.SetTimeStep('GM', 250, 0.1)
+    SapModel.LoadCases.ModHistLinear.SetCase('GM1')
+    SapModel.LoadCases.ModHistLinear.SetMotionType('GM1', 1)
+    SapModel.LoadCases.ModHistLinear.SetLoads('GM1', 1, ['Accel'], ['U1'], ['GM1'], [1], [1], [0], ['Global'], [0])
+    SapModel.LoadCases.ModHistLinear.SetTimeStep('GM1', 250, 0.1)
     # Create load combination
-    SapModel.RespCombo.Add('DEAD + GM', 0)
-    SapModel.RespCombo.SetCaseList('DEAD + GM', 0, 'DEAD', 1)
-    SapModel.RespCombo.SetCaseList('DEAD + GM', 0, 'GM', 1)
+    SapModel.RespCombo.Add('DEAD + GM1', 0)
+    SapModel.RespCombo.SetCaseList('DEAD + GM1', 0, 'DEAD', 1)
+    SapModel.RespCombo.SetCaseList('DEAD + GM1', 0, 'GM1', 1)
+    ##for GM2##
+    # Define time history function
+    N_m_C = 10
+    SapModel.SetPresentUnits(N_m_C)
+    SapModel.Func.FuncTH.SetFromFile('GM2', time_history_loc_2, 1, 0, 1, 2, True)
+    # Set the time history load case
+    N_m_C = 10
+    SapModel.SetPresentUnits(N_m_C)
+    SapModel.LoadCases.ModHistLinear.SetCase('GM2')
+    SapModel.LoadCases.ModHistLinear.SetMotionType('GM2', 1)
+    SapModel.LoadCases.ModHistLinear.SetLoads('GM2', 1, ['Accel'], ['U1'], ['GM2'], [1], [1], [0], ['Global'], [0])
+    SapModel.LoadCases.ModHistLinear.SetTimeStep('GM2', 250, 0.1)
+    # Create load combination
+    SapModel.RespCombo.Add('DEAD + GM2', 0)
+    SapModel.RespCombo.SetCaseList('DEAD + GM2', 0, 'DEAD', 1)
+    SapModel.RespCombo.SetCaseList('DEAD + GM2', 0, 'GM2', 1)
     # Save the model
     ret = SapModel.File.Save(save_loc)
     if ret != 0:
@@ -270,7 +287,9 @@ def run_analysis(SapModel):
     print('Finished computing.')
     #Get RELATIVE acceleration from node
     SapModel.Results.Setup.DeselectAllCasesAndCombosForOutput()
-    SapModel.Results.Setup.SetComboSelectedForOutput('DEAD + GM', True)
+    SapModel.Results.Setup.SetComboSelectedForOutput('DEAD + GM1', True)
+    #SapModel.Results.Setup.SetComboSelectedForOutput('DEAD + GM2', True)
+
     #set type to envelope
     SapModel.Results.Setup.SetOptionModalHist(1)
     #Get joint acceleration
@@ -400,7 +419,8 @@ FloorBracing = ReadExcel.get_bracing(wb,ExcelIndex,'Floor Bracing')
 SpaceBracing = ReadExcel.get_bracing(wb,ExcelIndex,'Space Bracing')
 AllTowers = ReadExcel.read_input_table(wb, ExcelIndex)
 SaveLoc = ExcelIndex['Save location']
-TimeHistoryLoc = ExcelIndex['Time history location']
+TimeHistoryLoc1 = ExcelIndex['Time history location 1']
+TimeHistoryLoc2 = ExcelIndex['Time history location 2']
 
 print('\nInitializing SAP2000 model...')
 # create SAP2000 object
@@ -467,7 +487,7 @@ TowerNum = 1
 ComputeTimes = []
 
 # Define load cases
-SapModel = define_loading(SapModel, TimeHistoryLoc, SaveLoc)
+SapModel = define_loading(SapModel, TimeHistoryLoc1,TimeHistoryLoc2, SaveLoc)
 # Start scatter plot of FABI
 plt.ion()
 fig = plt.figure()
