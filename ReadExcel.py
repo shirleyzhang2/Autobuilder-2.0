@@ -147,13 +147,11 @@ def read_input_table(wb,excel_index):
         col_props_end_col = excel_index['Column properties end']
         cur_floor_row = cur_tower_row + input_table_offset
         cur_col = col_props_start_col
-        col_props = {}
-        face = 1
+        col_props = []
         while ws_input[cur_col + str(cur_floor_row)].value is not None:
-            col_props[face] = []
-            while cur_col != get_column_letter(column_index_from_string(col_props_end_col)+1):
+            while cur_col != chr(ord(col_props_end_col)+1):
                 col_prop = ws_input[cur_col + str(cur_floor_row)].value
-                col_props[face] = col_prop
+                col_props.append(col_prop)
                 cur_col = get_column_letter(column_index_from_string(cur_col)+1)
             cur_col = col_props_start_col
             cur_floor_row = cur_floor_row + 1
@@ -163,17 +161,14 @@ def read_input_table(wb,excel_index):
         bracing_types_end_col= excel_index['Bracing type end']
         cur_floor_row = cur_tower_row + input_table_offset
         cur_col = bracing_types_start_col
-        bracing_types = {}
-        face = 1
+        bracing_types = []
         while ws_input[cur_col + str(cur_floor_row)].value is not None:
-            bracing_types[face] = []
-            while cur_col != get_column_letter(column_index_from_string(bracing_types_end_col)+1):
+            while cur_col != chr(ord(bracing_types_end_col)+1):
                 bracing_type = ws_input[cur_col + str(cur_floor_row)].value
-                bracing_types[face].append(bracing_type)
+                bracing_types.append(bracing_type)
                 cur_col = get_column_letter(column_index_from_string(cur_col)+1)
             cur_col = bracing_types_start_col
             cur_floor_row = cur_floor_row + 1
-            face += 1
         cur_tower.bracing_types = bracing_types
         #read floor masses
         floor_masses_col = excel_index['Floor mass col']

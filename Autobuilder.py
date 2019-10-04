@@ -97,9 +97,10 @@ def build_floor_plan_and_bracing(SapModel, tower, all_floor_plans, all_floor_bra
 
 def build_face_bracing(SapModel, tower, all_floor_plans, all_face_bracing, floor_num, floor_elev):
     i = 1
+    num_faces = len(Tower.side)
     print('Building face bracing...')
     while i <= len(Tower.side):
-        face_bracing_num = Tower.bracing_types[floor_num][i-1]
+        face_bracing_num = Tower.bracing_types[(floor_num - 1) * num_faces + i - 1]
         if face_bracing_num != 0:
             face_bracing = all_face_bracing[face_bracing_num-1]
 
@@ -174,7 +175,7 @@ def build_space_bracing(SapModel, tower, all_floor_plans, all_space_bracing, flo
             end_x = end_node[0] * scaling_x
             end_y = end_node[1] * scaling_y
             end_z = scaling_z + floor_elev
-            section_name = member.sec_prop 
+            section_name = member.sec_prop
 
             [ret, name] = SapModel.FrameObj.AddByCoord(start_x, start_y, start_z, end_x, end_y, end_z, '', PropName=section_name)
             if ret != 0:
@@ -186,6 +187,7 @@ def build_columns(SapModel, tower, all_floor_plans, all_sections, floor_num, flo
     print('Building columns...')
     floor_plan_num = tower.floor_plans[floor_num-1]
     floor_plan = all_floor_plans[floor_plan_num-1]
+    num_corners = len(tower.side)
     x_values = []
     y_values = []
     for member in floor_plan.members:
@@ -198,34 +200,29 @@ def build_columns(SapModel, tower, all_floor_plans, all_sections, floor_num, flo
     max_x = max(x_values) * tower.x_width
     min_y = min(y_values) * tower.y_width
     max_y = max(y_values) * tower.y_width
-    section_num = tower.col_props[1]
+
+    section_num = tower.col_props[(floor_num - 1) * num_corners]
     section_name = all_sections['Section ' + str(section_num)]['Name']
-    
     [ret, name] = SapModel.FrameObj.AddByCoord(min_x, min_y, floor_elev, min_x, min_y, floor_elev + floor_height, '', PropName=section_name)
     if ret != 0:
         print('ERROR creating column on floor ' + str(floor_num))
+    section_num = tower.col_props[(floor_num - 1) * num_corners + 1]
+    section_name = all_sections['Section ' + str(section_num)]['Name']
     [ret, name] = SapModel.FrameObj.AddByCoord(min_x, max_y, floor_elev, min_x, max_y, floor_elev + floor_height, '', PropName=section_name)
     if ret != 0:
         print('ERROR creating column on floor ' + str(floor_num))
+    section_num = tower.col_props[(floor_num - 1) * num_corners + 2]
+    section_name = all_sections['Section ' + str(section_num)]['Name']
     [ret, name] = SapModel.FrameObj.AddByCoord(max_x, max_y, floor_elev, max_x, max_y, floor_elev + floor_height, '', PropName=section_name)
     if ret != 0:
         print('ERROR creating column on floor ' + str(floor_num))
+    section_num = tower.col_props[(floor_num - 1) * num_corners + 3]
+    section_name = all_sections['Section ' + str(section_num)]['Name']
     [ret, name] = SapModel.FrameObj.AddByCoord(max_x, min_y, floor_elev, max_x, min_y, floor_elev + floor_height, '', PropName=section_name)
     if ret != 0:
         print('ERROR creating column on floor ' + str(floor_num))
     return SapModel
 
-'''
-def intersect_members(SapModel):
-    print('Intersecting all members...')
-    [ret, number_members, all_member_names] = SapModel.FrameObj.GetNameList()
-    # ret = SapModel.SelectObj.All(False)
-    for member_name in all_member_names:
-        #[ret, num_divided, new_names] = SapModel.EditFrame.DivideAtIntersections(member_name)
-        ret = SapModel.EditFrame.DivideByRatio(member_name,2,0.5)
-    # ret = SapModel.SelectObj.All(True)
-    return SapModel
-'''
 
 def set_base_restraints(SapModel):
     # Set fixed ends on all ground level nodes
@@ -238,7 +235,7 @@ def set_base_restraints(SapModel):
     return SapModel
 
 
-def define_loading(SapModel, time_history_loc_1, time_history_loc_2, save_loc):
+def define_loading(SapModel, time_history_loc_1, time_history_loc_2, gm1_steps, gm1_intervals, gm2_steps, gm2_intervals, save_loc):
     print('Defining loading...')
     ##for GM1##
     # Define time history function
@@ -251,7 +248,7 @@ def define_loading(SapModel, time_history_loc_1, time_history_loc_2, save_loc):
     SapModel.LoadCases.ModHistLinear.SetCase('GM1')
     SapModel.LoadCases.ModHistLinear.SetMotionType('GM1', 1)
     SapModel.LoadCases.ModHistLinear.SetLoads('GM1', 1, ['Accel'], ['U1'], ['GM1'], [1], [1], [0], ['Global'], [0])
-    SapModel.LoadCases.ModHistLinear.SetTimeStep('GM1', 250, 0.1)
+    SapModel.LoadCases.ModHistLinear.SetTimeStep('GM1', gm1_steps, gm1_intervals)
     # Create load combination
     SapModel.RespCombo.Add('DEAD + GM1', 0)
     SapModel.RespCombo.SetCaseList('DEAD + GM1', 0, 'DEAD', 1)
@@ -267,11 +264,14 @@ def define_loading(SapModel, time_history_loc_1, time_history_loc_2, save_loc):
     SapModel.LoadCases.ModHistLinear.SetCase('GM2')
     SapModel.LoadCases.ModHistLinear.SetMotionType('GM2', 1)
     SapModel.LoadCases.ModHistLinear.SetLoads('GM2', 1, ['Accel'], ['U1'], ['GM2'], [1], [1], [0], ['Global'], [0])
-    SapModel.LoadCases.ModHistLinear.SetTimeStep('GM2', 250, 0.1)
+    SapModel.LoadCases.ModHistLinear.SetTimeStep('GM2', gm2_steps, gm2_intervals)
     # Create load combination
     SapModel.RespCombo.Add('DEAD + GM2', 0)
     SapModel.RespCombo.SetCaseList('DEAD + GM2', 0, 'DEAD', 1)
     SapModel.RespCombo.SetCaseList('DEAD + GM2', 0, 'GM2', 1)
+    # Set damping ratios to 2.5%
+    SapModel.LoadCases.ModHistLinear.SetDampConstant('GM1', 0.025)
+    SapModel.LoadCases.ModHistLinear.SetDampConstant('GM2', 0.025)
     # Save the model
     ret = SapModel.File.Save(save_loc)
     if ret != 0:
@@ -279,21 +279,14 @@ def define_loading(SapModel, time_history_loc_1, time_history_loc_2, save_loc):
     return SapModel
 
 
-# returns the max acceleration in g, max drift (displacement) in mm, and weight in pounds
+# Returns the max acceleration in g, max drift (displacement) in mm, and weight in pounds
 def run_analysis(SapModel):
     #Run Analysis
     print('Computing...')
     SapModel.Analyze.RunAnalysis()
     print('Finished computing.')
-    #Get RELATIVE acceleration from node
-    SapModel.Results.Setup.DeselectAllCasesAndCombosForOutput()
-    SapModel.Results.Setup.SetComboSelectedForOutput('DEAD + GM1', True)
-    #SapModel.Results.Setup.SetComboSelectedForOutput('DEAD + GM2', True)
-
-    #set type to envelope
-    SapModel.Results.Setup.SetOptionModalHist(1)
-    #Get joint acceleration
     #Find a node that is on the top floor
+    print('Getting results...')
     [ret, number_nodes, all_node_names] = SapModel.PointObj.GetNameList()
     z_max = 0
     z = 0
@@ -302,57 +295,75 @@ def run_analysis(SapModel):
         if z > z_max:
             roof_node_name = node_name
             z_max = z
-    #Retrieve max ACCELERATION
     #Set units to metres
     N_m_C = 10
     SapModel.SetPresentUnits(N_m_C)
     g = 9.81
-    ret = SapModel.Results.JointAccAbs(roof_node_name, 0)
-    max_and_min_acc = ret[7]
-    max_pos_acc = max_and_min_acc[0]
-    min_neg_acc = max_and_min_acc[1]
-    if abs(max_pos_acc) >= abs(min_neg_acc):
-        max_acc = abs(max_pos_acc)/g
-    elif abs(min_neg_acc) >= abs(max_pos_acc):
-        max_acc = abs(min_neg_acc)/g
-    else:
-        print('Could not find max acceleration')
-    #Get joint DISPLACEMENT
-    #Set units to millimetres
-    N_mm_C = 9
-    SapModel.SetPresentUnits(N_mm_C)
-    ret = SapModel.Results.JointDispl(roof_node_name, 0)
-    max_and_min_disp = ret[7]
-    max_pos_disp = max_and_min_disp[0]
-    min_neg_disp = max_and_min_disp[1]
-    if abs(max_pos_disp) >= abs(min_neg_disp):
-        max_drift = abs(max_pos_acc)
-    elif abs(min_neg_disp) >= abs(max_pos_disp):
-        max_drift = abs(min_neg_disp)
-    else:
-        print('Could not find max drift')
-    #Get WEIGHT
-    #Get base reactions
+    # Get WEIGHT
+    # Get base reactions
     SapModel.Results.Setup.DeselectAllCasesAndCombosForOutput()
     SapModel.Results.Setup.SetCaseSelectedForOutput('DEAD')
-    #SapModel.Results.BaseReact(NumberResults, LoadCase, StepType, StepNum, Fx, Fy, Fz, Mx, My, Mz, gx, gy, gz)
+    # SapModel.Results.BaseReact(NumberResults, LoadCase, StepType, StepNum, Fx, Fy, Fz, Mx, My, Mz, gx, gy, gz)
     ret = SapModel.Results.BaseReact()
     if ret[0] != 0:
-        print('ERROR getting base reaction forces')
+        print('ERROR getting weight')
     base_react = ret[7][0]
-    total_weight = abs(base_react / 9.81)
-    #convert to lb
+    total_weight = abs(base_react / g)
+    # convert to lb
     total_weight = total_weight / 0.45359237
-    #Get PERIOD
+    results = []
 
-    # Get BASE SHEAR
+    # Loop through GM1 and GM2
+    for i in range(1, 3):
+        SapModel.Results.Setup.DeselectAllCasesAndCombosForOutput()
+        SapModel.Results.Setup.SetComboSelectedForOutput('DEAD + GM'+str(i), True)
+        # set type to envelope
+        SapModel.Results.Setup.SetOptionModalHist(1)
+        # get max ACCELERATION
+        # Set units to metres
+        N_m_C = 10
+        SapModel.SetPresentUnits(N_m_C)
+        ret = SapModel.Results.JointAccAbs(roof_node_name, 0)
+        max_and_min_acc = ret[7]
+        max_pos_acc = max_and_min_acc[0]
+        min_neg_acc = max_and_min_acc[1]
+        if abs(max_pos_acc) >= abs(min_neg_acc):
+            max_acc = abs(max_pos_acc)/g
+        elif abs(min_neg_acc) >= abs(max_pos_acc):
+            max_acc = abs(min_neg_acc)/g
+        else:
+            print('Could not find max acceleration')
+        #Get joint DISPLACEMENT
+        #Set units to millimetres
+        N_mm_C = 9
+        SapModel.SetPresentUnits(N_mm_C)
+        ret = SapModel.Results.JointDispl(roof_node_name, 0)
+        max_and_min_disp = ret[7]
+        max_pos_disp = max_and_min_disp[0]
+        min_neg_disp = max_and_min_disp[1]
+        if abs(max_pos_disp) >= abs(min_neg_disp):
+            max_drift = abs(max_pos_disp)
+        elif abs(min_neg_disp) >= abs(max_pos_disp):
+            max_drift = abs(min_neg_disp)
+        else:
+            print('Could not find max drift')
+        # Get PERIOD
+        ret = SapModel.Results.ModalPeriod()
+        if ret[0] != 0:
+            print('ERROR getting modal period')
+        period = ret[5][0]
+        # Get BASE SHEAR
+        ret = SapModel.Results.BaseReact()
+        if ret[0] != 0:
+            print('ERROR getting base reaction')
+        basesh = max(abs(ret[5][0]), abs(ret[5][1]))
+        results.append([max_acc, max_drift, total_weight, period, basesh])
+    return results
 
 
-    return max_acc, max_drift, total_weight, period, basesh
-
-
-def get_costs(max_acc, max_disp, footprint, weight, floor_masses):
+def get_costs(max_acc, max_disp, footprint, weight, floor_masses, floor_heights):
     # Subtract weights. Weight is initially in lb, convert to kg
+    print('Calculating costs...')
     weight = (weight * 0.45359237 - sum(floor_masses)) / 0.45359237
     design_life = 100 #years
     construction_cost = 2500000*(weight**2)+6*(10**6)
@@ -362,7 +373,7 @@ def get_costs(max_acc, max_disp, footprint, weight, floor_masses):
     return_period_1 = 50
     return_period_2 = 300
     apeak_1 = max_acc #g's
-    xpeak_1 = 100*max_disp/1524 #% roof drift
+    xpeak_1 = 100*max_disp/(sum(floor_heights) * 25.4) #% roof drift
     structural_damage_1 = scipy.stats.norm(1.5, 0.5).cdf(xpeak_1)
     equipment_damage_1 = scipy.stats.norm(1.75, 0.7).cdf(apeak_1)
     economic_loss_1 = structural_damage_1*construction_cost + equipment_damage_1*equipment_cost
@@ -375,31 +386,45 @@ def get_costs(max_acc, max_disp, footprint, weight, floor_masses):
     return annual_building_cost, annual_seismic_cost
 
 
-def write_to_excel(wb, all_costs, all_acc, all_disp, all_weight, all_period, all_basesh, all_constcost, all_seisscore,save_loc):
+def write_to_excel(all_costs, all_results, save_loc):
     print('Writing all results to Excel...')
     filepath = save_loc + '/Results.xlsx'
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws['A1'].value = 'Tower #'
-    ws['B1'].value = 'Annual Building Cost + Annual Seismic Cost'
-    ws['C1'].value = 'Acceleration (g)'
-    ws['D1'].value = 'Displacement (mm)'
-    ws['E1'].value = 'Weight (N)'
-    ws['F1'].value = 'Period (s)'
-    ws['G1'].value = 'Base Shear (N)'
-    ws['H1'].value = 'Construction Cost'
-    ws['I1'].value = 'Seismic Score'
+    ws['A2'].value = 'Tower #'
+    ws['B1'].value = 'GM1'
+    ws['B2'].value = 'Annual Building Cost + Annual Seismic Cost'
+    ws['C2'].value = 'Acceleration (g)'
+    ws['D2'].value = 'Displacement (mm)'
+    ws['E2'].value = 'Weight (lb)'
+    ws['F2'].value = 'Period (s)'
+    ws['G2'].value = 'Base Shear (N)'
+    ws['H2'].value = 'Annual Building Cost'
+    ws['I2'].value = 'Annual Seismic Cost'
+    ws['J1'].value = 'GM2'
+    ws['J2'].value = 'Acceleration (g)'
+    ws['K2'].value = 'Displacement (mm)'
+    ws['L2'].value = 'Weight (lb)'
+    ws['M2'].value = 'Period (s)'
+    ws['N2'].value = 'Base Shear (N)'
 
-    for tower_num in range(1, len(all_costs)):
-        ws['A' + str(tower_num + 1)].value = tower_num
-        ws['B' + str(tower_num + 1)].value = all_costs(tower_num - 1)
-        ws['C' + str(tower_num + 1)].value = all_acc(tower_num - 1)
-        ws['D' + str(tower_num + 1)].value = all_disp(tower_num - 1)
-        ws['E' + str(tower_num + 1)].value = all_weight(tower_num - 1)
-        ws['F' + str(tower_num + 1)].value = all_period(tower_num - 1)
-        ws['G' + str(tower_num + 1)].value = all_basesh(tower_num - 1)
-        ws['H' + str(tower_num + 1)].value = all_constcost(tower_num - 1)
-        ws['I' + str(tower_num + 1)].value = all_seisscore(tower_num - 1)
+    for tower_num in range(1, len(all_costs)+1):
+        ws['A' + str(tower_num + 2)].value = tower_num
+        # Write GM1 results
+        ws['B' + str(tower_num + 2)].value = sum(all_costs[tower_num - 1]) # annual bldg cost + annual seismic cost
+        ws['C' + str(tower_num + 2)].value = all_results[tower_num - 1][0][0] # acceleration
+        ws['D' + str(tower_num + 2)].value = all_results[tower_num - 1][0][1] # displacement
+        ws['E' + str(tower_num + 2)].value = all_results[tower_num - 1][0][2] # weight
+        ws['F' + str(tower_num + 2)].value = all_results[tower_num - 1][0][3] # period
+        ws['G' + str(tower_num + 2)].value = all_results[tower_num - 1][0][4] # base shear
+        ws['H' + str(tower_num + 2)].value = all_costs[tower_num - 1][0] # annual bldg cost
+        ws['I' + str(tower_num + 2)].value = all_costs[tower_num - 1][1] # seismic cost
+        # Write GM2 results
+        ws['J' + str(tower_num + 2)].value = all_results[tower_num - 1][1][0] # acceleration
+        ws['K' + str(tower_num + 2)].value = all_results[tower_num - 1][1][1] # displacement
+        ws['L' + str(tower_num + 2)].value = all_results[tower_num - 1][1][2] # weight
+        ws['M' + str(tower_num + 2)].value = all_results[tower_num - 1][1][3] # period
+        ws['N' + str(tower_num + 2)].value = all_results[tower_num - 1][1][4] # base shear
     wb.save(filepath)
 
 
@@ -415,7 +440,7 @@ print('--------------------------------------------------------\n')
 
 #Read in the excel workbook
 print("\nReading Excel spreadsheet...")
-wb = load_workbook('Auto-Builder.xlsm')
+wb = load_workbook('Auto-Builder.xlsm', data_only=True)
 ExcelIndex = ReadExcel.get_excel_indices(wb, 'A', 'B', 2)
 
 Sections = ReadExcel.get_properties(wb,ExcelIndex,'Section')
@@ -490,20 +515,26 @@ for Section, SecProps in Sections.items():
         print('ERROR creating section property ' + SecName)
 
 AllCosts = []
+AllResults = []
 TowerNum = 1
 ComputeTimes = []
 
 # Define load cases
-SapModel = define_loading(SapModel, TimeHistoryLoc1,TimeHistoryLoc2, SaveLoc)
+gm1_Steps = ExcelIndex['GM1 time steps']
+gm1_Intervals = ExcelIndex['GM1 time interval']
+gm2_Steps = ExcelIndex['GM2 time steps']
+gm2_Intervals = ExcelIndex['GM2 time interval']
+SapModel = define_loading(SapModel, TimeHistoryLoc1, TimeHistoryLoc2, gm1_Steps, gm1_Intervals,
+                          gm2_Steps, gm2_Intervals, SaveLoc)
 # Start scatter plot of FABI
 plt.ion()
 fig = plt.figure()
 ax = plt.subplot(1,1,1)
 ax.set_xlabel('Tower Number')
-ax.set_ylabel('FABI')
+ax.set_ylabel('Total Cost')
 xdata = []
 ydata = []
-ax.plot(xdata, ydata, 'ro', markersize=10)
+ax.plot(xdata, ydata, 'ro', markersize=6)
 plt.grid(True)
 
 plt.show(block=False)
@@ -517,13 +548,13 @@ for Tower in AllTowers:
     CurFloorNum = 1
     CurFloorElevation = 0
     # Build each floor of the tower
-    while CurFloorNum <=  NumFloors:
+    while CurFloorNum <= NumFloors:
         print('Floor ' + str(CurFloorNum))
         CurFloorHeight = Tower.floor_heights[CurFloorNum - 1]
         
-        if CurFloorNum <=  NumFloors and CurFloorElevation != 0:
+        if CurFloorNum <= NumFloors and CurFloorElevation != 0:
             SapModel = build_floor_plan_and_bracing(SapModel, Tower, FloorPlans, FloorBracing, CurFloorNum, CurFloorElevation)
-        if CurFloorNum <  NumFloors:
+        if CurFloorNum <= NumFloors and CurFloorHeight != 0:
             SapModel = build_face_bracing(SapModel, Tower, FloorPlans, Bracing, CurFloorNum, CurFloorElevation)
             SapModel = build_space_bracing(SapModel, Tower, FloorPlans, SpaceBracing, CurFloorNum, CurFloorElevation)
             SapModel = build_columns(SapModel, Tower, FloorPlans, Sections, CurFloorNum, CurFloorHeight, CurFloorElevation)
@@ -539,10 +570,13 @@ for Tower in AllTowers:
     #Analyse tower and print results to spreadsheet
     print('\nAnalyzing tower number ' + str(TowerNum))
     print('-------------------------')
-    #run analysis and get weight and acceleration
-    [MaxAcc, MaxDisp, Weight] = run_analysis(SapModel)
-    #Calculate model FABI
-    AllCosts.append(get_costs(MaxAcc, MaxDisp, Tower.footprint, Weight, Tower.floor_masses))
+    # Run analysis and get weight, displacement, and acceleration
+    AllResults.append(run_analysis(SapModel))
+    MaxAcc = AllResults[TowerNum-1][0][0]
+    MaxDisp = AllResults[TowerNum-1][0][1]
+    Weight = AllResults[TowerNum-1][0][2]
+    #Calculate model cost
+    AllCosts.append(get_costs(MaxAcc, MaxDisp, Tower.footprint, Weight, Tower.floor_masses, Tower.floor_heights))
     #Unlock model
     SapModel.SetModelIsLocked(False)
     # Delete everything in the model
@@ -583,7 +617,7 @@ for Tower in AllTowers:
 
     # Add cost to scatter plot
     xdata.append(TowerNum)
-    ydata.append(AllCosts[TowerNum-1])
+    ydata.append(AllCosts[TowerNum-1][0] + AllCosts[TowerNum-1][1])
     ax.lines[0].set_data(xdata,ydata)
     ax.relim()
     ax.autoscale_view()
@@ -597,7 +631,7 @@ for Tower in AllTowers:
 print('\n\nFinished constructing all towers.')
 
 # Write all results to excel spreadsheet
-write_to_excel(wb, AllCosts, SaveLoc)
+write_to_excel(AllCosts, AllResults, SaveLoc)
 # Close SAP2000
 print('Closing SAP2000...')
 SapObject.ApplicationExit(False)
