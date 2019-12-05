@@ -6,26 +6,15 @@ from openpyxl.utils.cell import get_column_letter, column_index_from_string
 import string
 
 class Tower:
-    def __init__(self, number=0, member_mat='BALSA', rod_mat='STEEL', x_width=0, y_width=0, footprint=0, floor_plans=[], floor_heights=[],
-                 col_props=[], bracing_types=[], floor_masses=[], floor_bracing_types=[], space_bracing_types=[], side=0):
+    def __init__(self, number=1, x_width=0, y_width=0, panels={}, members={}):
         self.number = number
-        self.member_mat = member_mat
-        self.rod_mat = rod_mat
         self.x_width = x_width
         self.y_width = y_width
-        self.footprint = footprint
-        self.floor_plans = floor_plans
-        self.floor_heights = floor_heights
-        self.col_props = col_props
-        self.bracing_types = bracing_types
-        self.floor_masses = floor_masses
-        self.floor_bracing_types = floor_bracing_types
-        self.space_bracing_types = space_bracing_types
-        self.side = side
-
+        self.panels = panels
+        self.members = members
 
 class BracingScheme:
-    def __init__(self, number=1, face=1, members=[], mass_nodes=[]):
+    def __init__(self, number=1, members=[], mass_nodes=[]):
         self.number = number
         self.members = members
         self.mass_nodes = mass_nodes
@@ -44,6 +33,14 @@ class Member:
         self.start_node = start_node
         self.end_node = end_node
         self.sec_prop = sec_prop
+
+class Panel:
+    def __init__(self, num, point1, point2, point3, point4):
+        self.num = num
+        self.point1 = point1 # Lower left
+        self.point2 = point2 # Upper left
+        self.point3 = point3 # Upper right
+        self.point4 = point4 # Lower right
 
 
 ##########get excel index############
@@ -69,7 +66,7 @@ def get_properties(wb,excel_index,parameter):
     elif parameter == 'Section':
         ws = wb['Section Properties']
     else:
-        print('Input should be either "Material" or"Section"')
+        print('Input should be either "Material" or "Section"')
     #parameter = 'unknown'
     #if ws['A1'].value == 'Section #':
     #    parameter = 'Section'
@@ -96,124 +93,66 @@ def get_properties(wb,excel_index,parameter):
 
 #Outputs a list containing tower objects representing each tower to be built
 def read_input_table(wb,excel_index):
-    #Read in the top value in the sheet
-    input_table_sheet = excel_index['Input table sheet']
     #Set worksheet to the input table sheet
     ws_input = wb['Input Table']
     input_table_offset = excel_index['Input table offset']
     total_towers = excel_index['Total number of towers']
     cur_tower_row = 1
-    table_start_row = cur_tower_row + input_table_offset
     all_towers = []
     cur_tower_num = 1
-    while cur_tower_num <= total_towers:
-        #create tower object
-        cur_tower = Tower()
-        #read member material
-        member_mat = ws_input['B'+str(cur_tower_row + 1)].value
-        cur_tower.member_mat = member_mat
-        #read rod material
-        rod_mat = ws_input['B'+str(cur_tower_row + 2)].value
-        cur_tower.rod_mat = rod_mat
-        #read building footprint in square inches
-        footprint = ws_input['B'+str(cur_tower_row + 3)].value
-        cur_tower.footprint = footprint
-        #read tower x width
-        x_width = ws_input['B' + str(cur_tower_row + 4)].value
-        cur_tower.x_width = x_width
-        #read tower y width
-        y_width = ws_input['B' + str(cur_tower_row + 5)].value
-        cur_tower.y_width = y_width
-        #read floor plans
-        floor_pln_col = excel_index['Floor plan col']
-        cur_floor_row = cur_tower_row + input_table_offset
-        floor_plans = []
-        while ws_input[floor_pln_col + str(cur_floor_row)].value is not None:
-            floor_pln = ws_input[floor_pln_col + str(cur_floor_row)].value
-            floor_plans.append(floor_pln)
-            cur_floor_row = cur_floor_row + 1
-        cur_tower.floor_plans = floor_plans
-        #read floor heights
-        floor_heights_col = excel_index['Floor height col']
-        cur_floor_row = cur_tower_row + input_table_offset
-        floor_heights = []
-        while ws_input[floor_heights_col + str(cur_floor_row)].value is not None:
-            floor_height = ws_input[floor_heights_col + str(cur_floor_row)].value
-            floor_heights.append(floor_height)
-            cur_floor_row = cur_floor_row + 1
-        cur_tower.floor_heights = floor_heights
-        #read column properties
-        col_props_start_col = excel_index['Column properties start']
-        col_props_end_col = excel_index['Column properties end']
-        cur_floor_row = cur_tower_row + input_table_offset
-        cur_col = col_props_start_col
-        col_props = []
-        while ws_input[cur_col + str(cur_floor_row)].value is not None:
-            while cur_col != chr(ord(col_props_end_col)+1):
-                col_prop = ws_input[cur_col + str(cur_floor_row)].value
-                col_props.append(col_prop)
-                cur_col = get_column_letter(column_index_from_string(cur_col)+1)
-            cur_col = col_props_start_col
-            cur_floor_row = cur_floor_row + 1
-        cur_tower.col_props = col_props
-        #read bracing properties
-        bracing_types_start_col = excel_index['Bracing type start']
-        bracing_types_end_col= excel_index['Bracing type end']
-        cur_floor_row = cur_tower_row + input_table_offset
-        cur_col = bracing_types_start_col
-        bracing_types = []
-        while ws_input[cur_col + str(cur_floor_row)].value is not None:
-            while cur_col != chr(ord(bracing_types_end_col)+1):
-                bracing_type = ws_input[cur_col + str(cur_floor_row)].value
-                bracing_types.append(bracing_type)
-                cur_col = get_column_letter(column_index_from_string(cur_col)+1)
-            cur_col = bracing_types_start_col
-            cur_floor_row = cur_floor_row + 1
-        cur_tower.bracing_types = bracing_types
-        #read floor masses
-        floor_masses_col = excel_index['Floor mass col']
-        cur_floor_row = cur_tower_row + input_table_offset
-        floor_masses = []
-        while ws_input[floor_masses_col + str(cur_floor_row)].value is not None:
-            floor_mass = ws_input[floor_masses_col + str(cur_floor_row)].value
-            floor_masses.append(floor_mass)
-            cur_floor_row = cur_floor_row + 1
-        cur_tower.floor_masses = floor_masses
-        #read floor bracing types
-        floor_bracing_col = excel_index['Floor bracing col']
-        cur_floor_row = cur_tower_row + input_table_offset
-        floor_bracing_types = []
-        while ws_input[floor_bracing_col + str(cur_floor_row)].value is not None:
-            floor_bracing = ws_input[floor_bracing_col + str(cur_floor_row)].value
-            floor_bracing_types.append(floor_bracing)
-            cur_floor_row = cur_floor_row + 1
-        cur_tower.floor_bracing_types = floor_bracing_types
-        #read space bracing types
-        space_bracing_col = excel_index['Space bracing col']
-        cur_floor_row = cur_tower_row + input_table_offset
-        space_bracing_types = []
-        while ws_input[space_bracing_col + str(cur_floor_row)].value is not None:
-            space_bracing = ws_input[space_bracing_col + str(cur_floor_row)].value
-            space_bracing_types.append(space_bracing)
-            cur_floor_row = cur_floor_row + 1
-        cur_tower.space_bracing_types = space_bracing_types
-        #read number of sides
-        side = []
-        side_start_col = excel_index['Bracing type start']
-        side_end_col= excel_index['Bracing type end']
-        cur_side_row = cur_tower_row + input_table_offset - 1
-        cur_col = side_start_col
-        while cur_col != get_column_letter(column_index_from_string(side_end_col)+1):
-            side_num = ws_input[cur_col + str(cur_side_row)].value
-            side.append(side_num)
-            cur_col = get_column_letter(column_index_from_string(cur_col)+1)
-        cur_tower.side = side
-        #increment
-        cur_tower.number = cur_tower_num
+    while ws_input['A' + str(cur_tower_row)].value is not None:
+        # Read tower x width
+        x_width = ws_input['B' + str(cur_tower_row + 1)].value
+        # Read tower y width
+        y_width = ws_input['B' + str(cur_tower_row + 2)].value
+        # Read panels
+        panels = {}
+        cur_panel_row = cur_tower_row + input_table_offset
+        while ws_input['A' + str(cur_panel_row)].value is not None:
+            panel_num = ws_input['A' + str(cur_panel_row)].value
+            panel_bracing = ws_input['B' + str(cur_panel_row)].value
+            panels[panel_num] = panel_bracing
+            cur_panel_row += 1
+        # Read members
+        members = {}
+        cur_member_row = cur_tower_row + input_table_offset
+        while ws_input['C' + str(cur_member_row)].value is not None:
+            member_name = ws_input['C' + str(cur_member_row)].value
+            sec_prop = ws_input['D' + str(cur_member_row)].value
+            members[member_name] = sec_prop
+            cur_member_row += 1
+        # Increment
+        cur_tower = Tower(number=cur_tower_num, x_width=x_width, y_width=y_width, panels=panels, members=members)
         all_towers.append(cur_tower)
         cur_tower_num = cur_tower_num + 1
-        cur_tower_row = cur_floor_row + 1
+        cur_tower_row = max(cur_panel_row, cur_member_row) + 1
     return all_towers
+
+def get_panels(wb, excel_index):
+    cur_panel_col = 'A'
+    ws = wb['Panels']
+    panels = []
+    panel_num = 1
+    while ws[cur_panel_col + '1'].value is not None:
+        xCol = get_column_letter(column_index_from_string(cur_panel_col) + 1)
+        yCol = get_column_letter(column_index_from_string(cur_panel_col) + 2)
+        zCol = get_column_letter(column_index_from_string(cur_panel_col) + 3)
+        x1 = ws[xCol + '4'].value
+        x2 = ws[xCol + '5'].value
+        x3 = ws[xCol + '6'].value
+        x4 = ws[xCol + '7'].value
+        y1 = ws[yCol + '4'].value
+        y2 = ws[yCol + '5'].value
+        y3 = ws[yCol + '6'].value
+        y4 = ws[yCol + '7'].value
+        z1 = ws[zCol + '4'].value
+        z2 = ws[zCol + '5'].value
+        z3 = ws[zCol + '6'].value
+        z4 = ws[zCol + '7'].value
+        panels.append(Panel(num=panel_num, point1=[x1,y1,z1], point2=[x2,y2,z2], point3=[x3,y3,z3], point4=[x4,y4,z4]))
+        panel_num += 1
+        cur_panel_col = get_column_letter(column_index_from_string(cur_panel_col) + 5)
+    return panels
 
 def get_node_info(wb,excel_index,node_num_col,parameter):
     if parameter == 'Floor Bracing':

@@ -11,6 +11,7 @@ import numpy
 from scipy.stats import norm
 import datetime
 import matplotlib.pyplot as plt
+import shapely.geometry
 
 
 def build_floor_plan_and_bracing(SapModel, tower, all_floor_plans, all_floor_bracing, floor_num, floor_elev):
@@ -234,6 +235,101 @@ def set_base_restraints(SapModel):
             [ret_set_restraint, ret] = SapModel.PointObj.SetRestraint(node_name, [True, True, True, True, True, True])
     return SapModel
 
+def delete_within_panel(SapModel, Panel):
+    # Create vectors to define panel
+    vec1_x = Panel.point1[0] - Panel.point2[0]
+    vec1_y = Panel.point1[1] - Panel.point2[1]
+    vec1_z = Panel.point1[2] - Panel.point2[2]
+    vec2_x = Panel.point1[0] - Panel.point3[0]
+    vec2_y = Panel.point1[1] - Panel.point3[1]
+    vec2_z = Panel.point1[2] - Panel.point3[2]
+    vec1 = [vec1_x, vec1_y, vec1_z]
+    vec2 = [vec2_x, vec2_y, vec2_z]
+    norm_vec = numpy.cross(numpy.array(vec1), numpy.array(vec2))
+
+    [ret, number_members, all_member_names] = SapModel.FrameObj.GetNameList()
+    # Loop through all members in model
+    for member_name in all_member_names:
+        # Check if member is parallel to panel plane
+        [ret, member_pt1_name, member_pt2_name] = SapModel.FrameObj.GetPoints(member_name)
+        if ret != 0:
+            print('ERROR checking member ' + member_name)
+        [ret, member_pt1_x, member_pt1_y, member_pt1_z] = SapModel.PointObj.GetCoordCartesian(member_pt1_name)
+        if ret != 0:
+            print('ERROR getting coordinate of point ' + member_pt1_name)
+        [ret, member_pt2_x, member_pt2_y, member_pt2_z] = SapModel.PointObj.GetCoordCartesian(member_pt2_name)
+        if ret != 0:
+            print('ERROR getting coordinate of point ' + member_pt2_name)
+
+        member_vec_x = member_pt2_x - member_pt1_x
+        member_vec_y = member_pt2_y - member_pt1_y
+        member_vec_z = member_pt2_z - member_pt1_z
+        member_vec = [member_vec_x, member_vec_y, member_vec_z]
+
+        if numpy.dot(member_vec, norm_vec) == 0:
+            # Check if member is in the same plane as the panel
+            # To do this, check if the vector between a member point and a plane point is parallel to plane
+            test_vec = [member_pt1_x - Panel.point1[0], member_pt1_y - Panel.point1[1], member_pt1_z - Panel.point1[2]]
+            if numpy.dot(test_vec, norm_vec) == 0:
+                # Check if the member lies within the limits of the panel
+                # First, transform the frame of reference since Shapely only works in 2D
+                # Create unit vectors
+                ref_vec_1 = vec1
+                ref_vec_2 = numpy.cross(ref_vec_1, norm_vec)
+                # Project each point defining the panel onto each reference vector
+                panel_pt1_trans_1 = numpy.dot(Panel.point1, ref_vec_1) / numpy.linalg.norm(ref_vec_1)
+                panel_pt1_trans_2 = numpy.dot(Panel.point1, ref_vec_2) / numpy.linalg.norm(ref_vec_2)
+                panel_pt2_trans_1 = numpy.dot(Panel.point2, ref_vec_1) / numpy.linalg.norm(ref_vec_1)
+                panel_pt2_trans_2 = numpy.dot(Panel.point2, ref_vec_2) / numpy.linalg.norm(ref_vec_2)
+                panel_pt3_trans_1 = numpy.dot(Panel.point3, ref_vec_1) / numpy.linalg.norm(ref_vec_1)
+                panel_pt3_trans_2 = numpy.dot(Panel.point3, ref_vec_2) / numpy.linalg.norm(ref_vec_2)
+                panel_pt4_trans_1 = numpy.dot(Panel.point4, ref_vec_1) / numpy.linalg.norm(ref_vec_1)
+                panel_pt4_trans_2 = numpy.dot(Panel.point4, ref_vec_2) / numpy.linalg.norm(ref_vec_2)
+                # Project each point defining the member onto the reference vector
+                member_pt1 = [member_pt1_x, member_pt1_y, member_pt1_z]
+                member_pt2 = [member_pt2_x, member_pt2_y, member_pt2_z]
+                member_pt1_trans_1 = numpy.dot(member_pt1, ref_vec_1) / numpy.linalg.norm(ref_vec_1)
+                member_pt1_trans_2 = numpy.dot(member_pt1, ref_vec_2) / numpy.linalg.norm(ref_vec_2)
+                member_pt2_trans_1 = numpy.dot(member_pt2, ref_vec_1) / numpy.linalg.norm(ref_vec_1)
+                member_pt2_trans_2 = numpy.dot(member_pt2, ref_vec_2) / numpy.linalg.norm(ref_vec_2)
+                # Create shapely geometries to check if member is in the panel
+                poly_coords = [(panel_pt1_trans_1, panel_pt1_trans_2), (panel_pt2_trans_1, panel_pt2_trans_2), (panel_pt3_trans_1, panel_pt3_trans_2), (panel_pt4_trans_1, panel_pt4_trans_2)]
+                member_coords = [(member_pt1_trans_1, member_pt1_trans_2),(member_pt2_trans_1, member_pt2_trans_2)]
+                panel_shapely = shapely.geometry.Polygon(poly_coords)
+                member_shapely = shapely.geometry.LineString(member_coords)
+                # Delete member if it is inside the panel
+                if member_shapely.intersects(panel_shapely) == True and member_shapely.touches(panel_shapely) == False:
+                    ret = SapModel.FrameObj.Delete(member_name, 0)
+                    if ret != 0:
+                        print('ERROR deleting member ' + member_name)
+                    print('Deleted member ' + member_name)
+    return SapModel
+
+def build_bracing_in_panel(SapModel, panel, bracing_scheme):
+    for member in bracing_scheme.members:
+        start_node = member.start_node
+        end_node = member.end_node
+        # Scale the member start and end points to fit the panel location and dimensions
+        # Get unit vectors to define the panel
+        panel_vec_horiz_x = panel.point4[0] - panel.point1[0]
+        panel_vec_horiz_y = panel.point4[1] - panel.point1[1]
+        panel_vec_horiz_z =  panel.point4[2] - panel.point1[2]
+        panel_vec_vert_x = panel.point2[0] - panel.point1[0]
+        panel_vec_vert_y = panel.point2[1] - panel.point1[1]
+        panel_vec_vert_z = panel.point2[2] - panel.point1[2]
+        panel_vec_horiz = [panel_vec_horiz_x, panel_vec_horiz_y, panel_vec_horiz_z]
+        panel_vec_vert = [panel_vec_vert_x, panel_vec_vert_y, panel_vec_vert_z]
+        # Get the scaled start and end coordinates for the member
+        # Translate point "horizontally" and "vertically"
+        start_node_x = panel.point1[0] + start_node[0] * panel_vec_horiz[0] + start_node[1] * panel_vec_vert[0]
+        start_node_y = panel.point1[1] + start_node[0] * panel_vec_horiz[1] + start_node[1] * panel_vec_vert[1]
+        start_node_z = panel.point1[2] + start_node[0] * panel_vec_horiz[2] + start_node[1] * panel_vec_vert[2]
+        end_node_x = panel.point1[0] + end_node[0] * panel_vec_horiz[0] + end_node[1] * panel_vec_vert[0]
+        end_node_y = panel.point1[1] + end_node[0] * panel_vec_horiz[1] + end_node[1] * panel_vec_vert[1]
+        end_node_z = panel.point1[2] + end_node[0] * panel_vec_horiz[2] + end_node[1] * panel_vec_vert[2]
+        # Create the member
+        SapModel.FrameObj.AddByCoord(start_node_x, start_node_y, start_node_z, end_node_x, end_node_y, end_node_z, '', PropName = member.sec_prop)
+    return SapModel
 
 def define_loading(SapModel, time_history_loc_1, time_history_loc_2, gm1_steps, gm1_intervals, gm2_steps, gm2_intervals, save_loc):
     print('Defining loading...')
@@ -440,7 +536,7 @@ print('--------------------------------------------------------\n')
 
 #Read in the excel workbook
 print("\nReading Excel spreadsheet...")
-wb = load_workbook('Auto-Builder.xlsm', data_only=True)
+wb = load_workbook('Autobuilder 2.0.xlsm', data_only=True)
 ExcelIndex = ReadExcel.get_excel_indices(wb, 'A', 'B', 2)
 
 Sections = ReadExcel.get_properties(wb,ExcelIndex,'Section')
@@ -449,10 +545,13 @@ Bracing = ReadExcel.get_bracing(wb,ExcelIndex,'Bracing')
 FloorPlans = ReadExcel.get_floor_plans(wb,ExcelIndex)
 FloorBracing = ReadExcel.get_bracing(wb,ExcelIndex,'Floor Bracing')
 SpaceBracing = ReadExcel.get_bracing(wb,ExcelIndex,'Space Bracing')
+Panels = ReadExcel.get_panels(wb, ExcelIndex)
 AllTowers = ReadExcel.read_input_table(wb, ExcelIndex)
 SaveLoc = ExcelIndex['Save location']
 TimeHistoryLoc1 = ExcelIndex['Time history location 1']
 TimeHistoryLoc2 = ExcelIndex['Time history location 2']
+
+model_loc = r'C:\Users\kotab\OneDrive - University of Toronto\Autobuilder 2.0\AB2.0_TEST1.sdb'
 
 print('\nInitializing SAP2000 model...')
 # create SAP2000 object
@@ -463,9 +562,10 @@ SapObject.ApplicationStart()
 SapModel = SapObject.SapModel
 # initialize model
 SapModel.InitializeNewModel()
-# create new blank model
-ret = SapModel.File.NewBlank()
+# open model
+ret = SapModel.File.OpenFile(model_loc)
 
+'''
 # Define new materials
 print("\nDefining materials...")
 N_m_C = 10
@@ -513,6 +613,8 @@ for Section, SecProps in Sections.items():
     ret = SapModel.PropFrame.SetGeneral(SecName, SecMat, 0.1, 0.1, SecArea, SecSh2, SecSh3, SecTors, SecIn2, SecIn3, SecMod2, SecMod3, SecPlMod2, SecPlMod3, SecRadGy2, SecRadGy3, -1)
     if ret != 0:
         print('ERROR creating section property ' + SecName)
+'''
+
 
 AllCosts = []
 AllResults = []
@@ -520,12 +622,15 @@ TowerNum = 1
 ComputeTimes = []
 
 # Define load cases
+'''
 gm1_Steps = ExcelIndex['GM1 time steps']
 gm1_Intervals = ExcelIndex['GM1 time interval']
 gm2_Steps = ExcelIndex['GM2 time steps']
 gm2_Intervals = ExcelIndex['GM2 time interval']
 SapModel = define_loading(SapModel, TimeHistoryLoc1, TimeHistoryLoc2, gm1_Steps, gm1_Intervals,
                           gm2_Steps, gm2_Intervals, SaveLoc)
+'''
+
 # Start scatter plot of FABI
 plt.ion()
 fig = plt.figure()
@@ -541,30 +646,34 @@ plt.show(block=False)
 
 # Build all towers defined in spreadsheet
 for Tower in AllTowers:
+    #Unlock model
+    SapModel.SetModelIsLocked(False)
+
     StartTime = time.time()
     print('\nBuilding tower number ' + str(TowerNum))
     print('-------------------------')
-    NumFloors = len(Tower.floor_plans)
-    CurFloorNum = 1
-    CurFloorElevation = 0
-    # Build each floor of the tower
-    while CurFloorNum <= NumFloors:
-        print('Floor ' + str(CurFloorNum))
-        CurFloorHeight = Tower.floor_heights[CurFloorNum - 1]
-        
-        if CurFloorNum <= NumFloors and CurFloorElevation != 0:
-            SapModel = build_floor_plan_and_bracing(SapModel, Tower, FloorPlans, FloorBracing, CurFloorNum, CurFloorElevation)
-        if CurFloorNum <= NumFloors and CurFloorHeight != 0:
-            SapModel = build_face_bracing(SapModel, Tower, FloorPlans, Bracing, CurFloorNum, CurFloorElevation)
-            SapModel = build_space_bracing(SapModel, Tower, FloorPlans, SpaceBracing, CurFloorNum, CurFloorElevation)
-            SapModel = build_columns(SapModel, Tower, FloorPlans, Sections, CurFloorNum, CurFloorHeight, CurFloorElevation)
 
-        CurFloorElevation = CurFloorElevation + CurFloorHeight
-        CurFloorNum += 1
-    # Intersect all members
-    # SapModel = intersect_members(SapModel)
-    # Set fixed end conditions on all ground floor nodes
+    # Delete all members within the plans and build correct bracing scheme
+    kip_in_F = 3
+    SapModel.SetPresentUnits(kip_in_F)
+    for PanelNum in Tower.panels:
+        BracingNum = Tower.panels[PanelNum]
+        BracingScheme = Bracing[BracingNum - 1]
+        Panel = Panels[PanelNum - 1]
+        print('Deleting members within panel ' + str(PanelNum) + '...')
+        SapModel = delete_within_panel(SapModel, Panel)
+        print('Building bracing scheme within panel ' + str(PanelNum) + "...")
+        SapModel = build_bracing_in_panel(SapModel, Panel, BracingScheme)
+
+    # Change the section properties of specified members
+    for MemberToChange in Tower.members:
+        NewSecProp = Tower.members[MemberToChange]
+        print('Changing member sections...')
+        SapModel.FrameObj.SetSection(str(MemberToChange), NewSecProp, 0)
+
+    # Set base nodes to fixed
     SapModel = set_base_restraints(SapModel)
+
     # Save the file
     SapModel.File.Save(SaveLoc + '/Tower ' + str(TowerNum))
     #Analyse tower and print results to spreadsheet
@@ -576,9 +685,14 @@ for Tower in AllTowers:
     MaxDisp = AllResults[TowerNum-1][0][1]
     Weight = AllResults[TowerNum-1][0][2]
     #Calculate model cost
-    AllCosts.append(get_costs(MaxAcc, MaxDisp, Tower.footprint, Weight, Tower.floor_masses, Tower.floor_heights))
+    Footprint = 144
+    TotalHeight = [60] # inches
+    TotalMass = [7.83] # kg
+    AllCosts.append(get_costs(MaxAcc, MaxDisp, Footprint, Weight, TotalMass, TotalHeight))
     #Unlock model
     SapModel.SetModelIsLocked(False)
+
+    '''
     # Delete everything in the model
     ret = SapModel.SelectObj.All(False)
     if ret != 0:
@@ -586,6 +700,7 @@ for Tower in AllTowers:
     ret = SapModel.FrameObj.Delete(Name='', ItemType=2)
     if ret != 0:
         print('ERROR deleting all')
+    '''
     # Determine total time taken to build current tower
     EndTime = time.time()
     TimeToComputeTower = EndTime - StartTime
