@@ -236,6 +236,7 @@ def set_base_restraints(SapModel):
     return SapModel
 
 def delete_within_panel(SapModel, Panel, members_to_keep = [], members_to_delete = []):
+    max_decimal_places = 6
     members_deleted = []
     if len(members_to_delete) == 0:
         # Create vectors to define panel
@@ -262,6 +263,14 @@ def delete_within_panel(SapModel, Panel, members_to_keep = [], members_to_delete
             [ret, member_pt2_x, member_pt2_y, member_pt2_z] = SapModel.PointObj.GetCoordCartesian(member_pt2_name)
             if ret != 0:
                 print('ERROR getting coordinate of point ' + member_pt2_name)
+
+            # Round the member coordinates
+            member_pt1_x = round(member_pt1_x, max_decimal_places)
+            member_pt1_y = round(member_pt1_y, max_decimal_places)
+            member_pt1_z = round(member_pt1_z, max_decimal_places)
+            member_pt2_x = round(member_pt2_x, max_decimal_places)
+            member_pt2_y = round(member_pt2_y, max_decimal_places)
+            member_pt2_z = round(member_pt2_z, max_decimal_places)
 
             # Check if the member is within the elevation of the panel
             panel_max_z = max(Panel.point1[2], Panel.point2[2], Panel.point3[2], Panel.point4[2])
@@ -344,9 +353,10 @@ def build_bracing_in_panel(SapModel, panel, bracing_scheme):
         end_node_y = panel.point1[1] + end_node[0] * panel_vec_horiz[1] + end_node[1] * panel_vec_vert[1]
         end_node_z = panel.point1[2] + end_node[0] * panel_vec_horiz[2] + end_node[1] * panel_vec_vert[2]
         # Create the member
-        [ret, member_name] = SapModel.FrameObj.AddByCoord(start_node_x, start_node_y, start_node_z, end_node_x, end_node_y, end_node_z, '', PropName = member.sec_prop)
+        [ret, member_name] = SapModel.FrameObj.AddByCoord(start_node_x, start_node_y, start_node_z, end_node_x, end_node_y, end_node_z, PropName=member.sec_prop)
+        if ret != 0:
+            print('ERROR building member in panel')
         members_built.append(member_name)
-
     return SapModel, members_built
 
 def define_loading(SapModel, time_history_loc_1, time_history_loc_2, gm1_steps, gm1_intervals, gm2_steps, gm2_intervals, save_loc):
@@ -554,7 +564,7 @@ print('--------------------------------------------------------\n')
 
 #Read in the excel workbook
 print("\nReading Excel spreadsheet...")
-wb = load_workbook(r'C:\Users\kotab\OneDrive - University of Toronto\Autobuilder 2.0\Autobuilder 2.0.xlsm', data_only=True)
+wb = load_workbook(r'C:\Users\kotab\OneDrive - University of Toronto\Autobuilder 2.0\L shape 2019-12-29\L-shape 2019-12-29 (COMPUTE 1).xlsm', data_only=True)
 ExcelIndex = ReadExcel.get_excel_indices(wb, 'A', 'B', 2)
 
 # Sections = ReadExcel.get_properties(wb,ExcelIndex,'Section')
@@ -569,7 +579,7 @@ SaveLoc = ExcelIndex['Save location']
 TimeHistoryLoc1 = ExcelIndex['Time history location 1']
 TimeHistoryLoc2 = ExcelIndex['Time history location 2']
 
-model_loc = r'C:\Users\kotab\OneDrive - University of Toronto\Autobuilder 2.0\AB2.0_TEST1.sdb'
+model_loc = r"C:\Users\kotab\OneDrive - University of Toronto\Autobuilder 2.0\L shape 2019-12-29\L shape - NoRigid.sdb"
 
 print('\nInitializing SAP2000 model...')
 # create SAP2000 object
@@ -677,8 +687,10 @@ for Tower in AllTowers:
     # Delete all members within the plans and build correct bracing scheme
     kip_in_F = 3
     SapModel.SetPresentUnits(kip_in_F)
+
     # Get list of members to not delete
     MembersToKeep = []
+    '''
     ret = SapModel.SelectObj.Group('MEMBERS TO KEEP')
     if ret == 0:
         [ret, NumberItems, ObjectTypes, ObjectNames] = SapModel.SelectObj.GetSelected()
@@ -688,7 +700,7 @@ for Tower in AllTowers:
         if ObjectTypes[i] == 3:
             MembersToKeep.append(Object)
         i += 1
-
+    '''
     if len(MembersAddedLast) != 0: #And the configuration is the same as the last tower
         print('Deleting members created in last iteration...')
         SapModel, MembersDeleted = delete_within_panel(SapModel, Panel, MembersToKeep, MembersAddedLast)
@@ -707,7 +719,7 @@ for Tower in AllTowers:
     # Change the section properties of specified members
     for MemberToChange in Tower.members:
         NewSecProp = Tower.members[MemberToChange]
-        print('Changing member sections...')
+        print('Changed section of member ' + str(MemberToChange))
         SapModel.FrameObj.SetSection(str(MemberToChange), NewSecProp, 0)
 
     # Set base nodes to fixed
