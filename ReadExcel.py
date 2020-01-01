@@ -99,33 +99,45 @@ def read_input_table(wb,excel_index):
     total_towers = excel_index['Total number of towers']
     cur_tower_row = 1
     all_towers = []
-    cur_tower_num = 1
-    while ws_input['A' + str(cur_tower_row)].value is not None:
+    panel_num_col = 'A'
+    panel_bracing_col = 'B'
+    member_name_col = 'C'
+    member_prop_col = 'D'
+
+    while ws_input[panel_num_col + str(cur_tower_row)].value is not None:
+        # Read tower number
+        cur_tower_num = ws_input[panel_bracing_col + str(cur_tower_row)].value
         # Read tower x width
-        x_width = ws_input['B' + str(cur_tower_row + 1)].value
+        x_width = ws_input[panel_bracing_col + str(cur_tower_row + 1)].value
         # Read tower y width
-        y_width = ws_input['B' + str(cur_tower_row + 2)].value
+        y_width = ws_input[panel_bracing_col + str(cur_tower_row + 2)].value
         # Read panels
         panels = {}
         cur_panel_row = cur_tower_row + input_table_offset
-        while ws_input['A' + str(cur_panel_row)].value is not None:
-            panel_num = ws_input['A' + str(cur_panel_row)].value
-            panel_bracing = ws_input['B' + str(cur_panel_row)].value
+        while ws_input[panel_num_col + str(cur_panel_row)].value is not None:
+            panel_num = ws_input[panel_num_col + str(cur_panel_row)].value
+            panel_bracing = ws_input[panel_bracing_col + str(cur_panel_row)].value
             panels[panel_num] = panel_bracing
             cur_panel_row += 1
         # Read members
         members = {}
         cur_member_row = cur_tower_row + input_table_offset
-        while ws_input['C' + str(cur_member_row)].value is not None:
-            member_name = ws_input['C' + str(cur_member_row)].value
-            sec_prop = ws_input['D' + str(cur_member_row)].value
+        while ws_input[member_name_col + str(cur_member_row)].value is not None:
+            member_name = ws_input[member_name_col + str(cur_member_row)].value
+            sec_prop = ws_input[member_prop_col + str(cur_member_row)].value
             members[member_name] = sec_prop
             cur_member_row += 1
         # Increment
         cur_tower = Tower(number=cur_tower_num, x_width=x_width, y_width=y_width, panels=panels, members=members)
         all_towers.append(cur_tower)
-        cur_tower_num = cur_tower_num + 1
         cur_tower_row = max(cur_panel_row, cur_member_row) + 1
+        if ws_input[panel_num_col + str(cur_tower_row)].value is None and ws_input[get_column_letter(column_index_from_string(panel_num_col)+5) + str(1)] is not None:
+            panel_num_col = get_column_letter(column_index_from_string(panel_num_col)+5)
+            panel_bracing_col = get_column_letter(column_index_from_string(panel_bracing_col)+5)
+            member_name_col = get_column_letter(column_index_from_string(member_name_col)+5)
+            member_prop_col = get_column_letter(column_index_from_string(member_prop_col)+5)
+            cur_tower_row = 1
+    print('Read ' + str(len(all_towers)) + ' towers')
     return all_towers
 
 def get_panels(wb, excel_index):
@@ -152,6 +164,7 @@ def get_panels(wb, excel_index):
         panels.append(Panel(num=panel_num, point1=[x1,y1,z1], point2=[x2,y2,z2], point3=[x3,y3,z3], point4=[x4,y4,z4]))
         panel_num += 1
         cur_panel_col = get_column_letter(column_index_from_string(cur_panel_col) + 5)
+    print('Read ' + str(len(panels)) + ' panels')
     return panels
 
 def get_node_info(wb,excel_index,node_num_col,parameter):
@@ -221,6 +234,7 @@ def get_bracing(wb,excel_index,parameter):
         current_section_col = get_column_letter(column_index_from_string(current_section_col)+9)
         current_start_node_col = get_column_letter(column_index_from_string(current_start_node_col)+9)
         current_end_node_col = get_column_letter(column_index_from_string(current_end_node_col)+9)
+    print('Read ' + str(len(all_bracing)) + ' bracing schemes')
     return all_bracing
 
 def get_floor_plans(wb,excel_index):

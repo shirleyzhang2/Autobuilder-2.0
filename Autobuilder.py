@@ -641,7 +641,6 @@ for PointName in AllPointNames:
     if ret != 0:
         print('ERROR rounding coordinates of point ' + PointName)
 
-
 '''
 # Define new materials
 print("\nDefining materials...")
@@ -723,6 +722,7 @@ plt.show(block=False)
 # Build all towers defined in spreadsheet
 LastTower = None
 MembersAddedLast = []
+EliminatedMembers = []
 for Tower in AllTowers:
     MembersAdded = []
     #Unlock model
@@ -769,31 +769,44 @@ for Tower in AllTowers:
     for MemberToChange in Tower.members:
         NewSecProp = Tower.members[MemberToChange]
         print('Changed section of member ' + str(MemberToChange))
-        SapModel.FrameObj.SetSection(str(MemberToChange), NewSecProp, 0)
+        ret = SapModel.FrameObj.SetSection(str(MemberToChange), NewSecProp, 0)
+        if ret != 0 and MemberToChange in EliminatedMembers:
+            print('ERROR changing section of member ' + str(MemberToChange) + '. Member was previously eliminated.')
+        elif ret != 0:
+            print('ERROR changing section of member ' + str(MemberToChange))
 
     # Set base nodes to fixed
     SapModel = set_base_restraints(SapModel)
 
-    # Join frame members if they are collinear, have the same section property, and don't have any mass assignments on the joint
+    # Join frame members if they are collinear and have the same section property. Prevents SAP2000 from indicating the model as unstable
+    # !!!!!!WARNING!!!!!! This does not check whether joints have masses assigned to them (SAP API is dumb and it's not working for some reason).
+    # Make sure that all nodes with masses have more than one frame member attached
     NumOfFrameJoins = 0
     [ret, NumberPoints, AllPointNames] = SapModel.PointObj.GetNameList()
     print('\nDeleting unnecessary joints...')
     for PointName in AllPointNames:
+        # Check joint load
+        [ret, NumberLoadAssigns, PointNameFromSAP, LoadPat, LCStep, CSys, F1, F2, F3, M1, M2, M3] = SapModel.PointObj.GetLoadForce(PointName)
+        if ret != 0:
+            print('ERROR getting load assignment at joint ' + PointName)
+        # Get joint connectivity
         [ret, NumberItems, ObjectTypes, ObjectNames, PointNumber] = SapModel.PointObj.GetConnectivity(PointName)
         if ret != 0:
             print('ERROR getting connectivity of point ' + PointName)
-        if NumberItems == 2 and ObjectTypes[0] == 2 and ObjectTypes[1] == 2:
+        # If all criteria met, delete joint
+        if NumberItems == 2 and ObjectTypes[0] == 2 and ObjectTypes[1] == 2 and NumberLoadAssigns == 0:
             [ret, Frame1Section, SAuto] = SapModel.FrameObj.GetSection(ObjectNames[0])
             [ret, Frame2Section, SAuto] = SapModel.FrameObj.GetSection(ObjectNames[1])
             if Frame1Section == Frame2Section:
                 ret = SapModel.EditFrame.Join(ObjectNames[0], ObjectNames[1])
+                EliminatedMembers.append(ObjectNames[1])
                 if ret == 0:
                     NumOfFrameJoins += 1
     print('Joined ' + str(NumOfFrameJoins) + ' members')
 
     # Save the file
     SapModel.File.Save(SaveLoc + '/Tower ' + str(TowerNum))
-    #Analyse tower and print results to spreadsheet
+    # Analyse tower and print results to spreadsheet
     print('\nAnalyzing tower number ' + str(TowerNum))
     print('-------------------------')
     # Run analysis and get weight, displacement, and acceleration
@@ -807,7 +820,7 @@ for Tower in AllTowers:
     TotalHeight = [60] # inches
     TotalMass = [7.83] # kg
     AllCosts.append(get_costs(MaxAcc, MaxDisp, Footprint, Weight, TotalMass, TotalHeight))
-    #Unlock model
+    # Unlock model
     SapModel.SetModelIsLocked(False)
 
     '''
