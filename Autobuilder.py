@@ -405,21 +405,48 @@ def define_loading(SapModel, time_history_loc_1, time_history_loc_2, gm1_steps, 
 
 # Returns the max acceleration in g, max drift (displacement) in mm, and weight in pounds
 def run_analysis(SapModel):
+    kip_in_F = 3
+    SapModel.SetPresentUnits(kip_in_F)
     #Run Analysis
     print('Computing...')
     SapModel.Analyze.RunAnalysis()
     print('Finished computing.')
-    #Find a node that is on the top floor
+    #Find nodes on the top floor
+    roof_node_names = []
     print('Getting results...')
     [ret, number_nodes, all_node_names] = SapModel.PointObj.GetNameList()
     z_max = 0
-    z = 0
+    x_max = 0
+    y_max = 0
+    x_min = 0
+    y_min = 0
     for node_name in all_node_names:
         [ret, x, y, z] = SapModel.PointObj.GetCoordCartesian(node_name, 0, 0, 0)
+        x = round(x, 6)
+        y = round(y, 6)
+        z = round(z, 6)
+        if x > x_max:
+            x_max = x
+        if y > y_max:
+            y_max = y
         if z > z_max:
-            roof_node_name = node_name
             z_max = z
-    #Set units to metres
+        if x < x_min:
+            x_min = x
+        if y < y_min:
+            y_min = y
+    x_width = abs(x_max - x_min)
+    y_width = abs(y_max - y_min)
+    # Make sure we get results from a node that is at the quarter points on the top floor
+    for node_name in all_node_names:
+        [ret, x, y, z] = SapModel.PointObj.GetCoordCartesian(node_name, 0, 0, 0)
+        x = round(x, 6)
+        y = round(y, 6)
+        z = round(z, 6)
+        if z == z_max and (abs(x-x_min) == x_width/4 or abs(x-x_max) == x_width/4) and (abs(y-y_min) == y_width/4 or abs(y-y_max) == y_width/4):
+            roof_node_names.append(node_name)
+    print('Roof nodes:', roof_node_names)
+    # Set units to metres
     N_m_C = 10
     SapModel.SetPresentUnits(N_m_C)
     g = 9.81
@@ -447,30 +474,38 @@ def run_analysis(SapModel):
         # Set units to metres
         N_m_C = 10
         SapModel.SetPresentUnits(N_m_C)
-        ret = SapModel.Results.JointAccAbs(roof_node_name, 0)
-        max_and_min_acc = ret[7]
-        max_pos_acc = max_and_min_acc[0]
-        min_neg_acc = max_and_min_acc[1]
-        if abs(max_pos_acc) >= abs(min_neg_acc):
-            max_acc = abs(max_pos_acc)/g
-        elif abs(min_neg_acc) >= abs(max_pos_acc):
-            max_acc = abs(min_neg_acc)/g
-        else:
-            print('Could not find max acceleration')
+        max_acc = 0
+        for roof_node_name in roof_node_names:
+            ret = SapModel.Results.JointAccAbs(roof_node_name, 0)
+            max_and_min_acc = ret[7]
+            max_pos_acc = max_and_min_acc[0]
+            min_neg_acc = max_and_min_acc[1]
+            if abs(max_pos_acc) >= abs(min_neg_acc):
+                max_acc_node = abs(max_pos_acc)/g
+            elif abs(min_neg_acc) >= abs(max_pos_acc):
+                max_acc_node = abs(min_neg_acc)/g
+            else:
+                print('Could not find max acceleration')
+            if max_acc_node > max_acc:
+                max_acc = max_acc_node
         #Get joint DISPLACEMENT
         #Set units to millimetres
         N_mm_C = 9
         SapModel.SetPresentUnits(N_mm_C)
-        ret = SapModel.Results.JointDispl(roof_node_name, 0)
-        max_and_min_disp = ret[7]
-        max_pos_disp = max_and_min_disp[0]
-        min_neg_disp = max_and_min_disp[1]
-        if abs(max_pos_disp) >= abs(min_neg_disp):
-            max_drift = abs(max_pos_disp)
-        elif abs(min_neg_disp) >= abs(max_pos_disp):
-            max_drift = abs(min_neg_disp)
-        else:
-            print('Could not find max drift')
+        max_disp = 0
+        for roof_node_name in roof_node_names:
+            ret = SapModel.Results.JointDispl(roof_node_name, 0)
+            max_and_min_disp = ret[7]
+            max_pos_disp = max_and_min_disp[0]
+            min_neg_disp = max_and_min_disp[1]
+            if abs(max_pos_disp) >= abs(min_neg_disp):
+                max_disp_node = abs(max_pos_disp)
+            elif abs(min_neg_disp) >= abs(max_pos_disp):
+                max_disp_node = abs(min_neg_disp)
+            else:
+                print('Could not find max drift')
+            if max_disp_node > max_disp:
+                max_disp = max_disp_node
         # Get PERIOD
         ret = SapModel.Results.ModalPeriod()
         if ret[0] != 0:
@@ -481,7 +516,7 @@ def run_analysis(SapModel):
         if ret[0] != 0:
             print('ERROR getting base reaction')
         basesh = max(abs(ret[5][0]), abs(ret[5][1]))
-        results.append([max_acc, max_drift, total_weight, period, basesh])
+        results.append([max_acc, max_disp, total_weight, period, basesh])
     return results
 
 
@@ -564,7 +599,7 @@ print('--------------------------------------------------------\n')
 
 #Read in the excel workbook
 print("\nReading Excel spreadsheet...")
-wb = load_workbook(r'C:\Users\kotab\OneDrive - University of Toronto\Autobuilder 2.0\L shape 2019-12-29\L-shape 2019-12-29 (COMPUTE 1).xlsm', data_only=True)
+wb = load_workbook(r"C:\Users\kotab\OneDrive - University of Toronto\Autobuilder 2.0\Test 2019-12-30\L-shape 2019-12-29 (TEST).xlsm", data_only=True)
 ExcelIndex = ReadExcel.get_excel_indices(wb, 'A', 'B', 2)
 
 # Sections = ReadExcel.get_properties(wb,ExcelIndex,'Section')
@@ -579,7 +614,7 @@ SaveLoc = ExcelIndex['Save location']
 TimeHistoryLoc1 = ExcelIndex['Time history location 1']
 TimeHistoryLoc2 = ExcelIndex['Time history location 2']
 
-model_loc = r"C:\Users\kotab\OneDrive - University of Toronto\Autobuilder 2.0\L shape 2019-12-29\L shape - NoRigid.sdb"
+model_loc = r"C:\Users\kotab\OneDrive - University of Toronto\Autobuilder 2.0\L shape 2019-12-29\L shape - NoRigid (COMPUTE 1).sdb"
 
 print('\nInitializing SAP2000 model...')
 # create SAP2000 object
@@ -592,6 +627,20 @@ SapModel = SapObject.SapModel
 SapModel.InitializeNewModel()
 # open model
 ret = SapModel.File.OpenFile(model_loc)
+
+# For manually built models, some of the joint locations can be off by very small amounts (e.g. 1e-6 m).
+# To fix this, round all coordinates down to 6 decimal places
+print('Rounding coordinates...')
+[ret, NumberPoints, AllPointNames] = SapModel.PointObj.GetNameList()
+for PointName in AllPointNames:
+    [ret, x, y, z] = SapModel.PointObj.GetCoordCartesian(PointName, 0, 0, 0)
+    x = round(x,6)
+    y = round(y,6)
+    z = round(z,6)
+    ret = SapModel.EditPoint.ChangeCoordinates_1(PointName, x, y, z, True)
+    if ret != 0:
+        print('ERROR rounding coordinates of point ' + PointName)
+
 
 '''
 # Define new materials
@@ -642,7 +691,6 @@ for Section, SecProps in Sections.items():
     if ret != 0:
         print('ERROR creating section property ' + SecName)
 '''
-
 
 AllCosts = []
 AllResults = []
@@ -717,6 +765,7 @@ for Tower in AllTowers:
         MembersAdded.extend(MembersAddedPanel)
 
     # Change the section properties of specified members
+    print('\nChanging section properties of specified members...')
     for MemberToChange in Tower.members:
         NewSecProp = Tower.members[MemberToChange]
         print('Changed section of member ' + str(MemberToChange))
@@ -725,12 +774,30 @@ for Tower in AllTowers:
     # Set base nodes to fixed
     SapModel = set_base_restraints(SapModel)
 
+    # Join frame members if they are collinear, have the same section property, and don't have any mass assignments on the joint
+    NumOfFrameJoins = 0
+    [ret, NumberPoints, AllPointNames] = SapModel.PointObj.GetNameList()
+    print('\nDeleting unnecessary joints...')
+    for PointName in AllPointNames:
+        [ret, NumberItems, ObjectTypes, ObjectNames, PointNumber] = SapModel.PointObj.GetConnectivity(PointName)
+        if ret != 0:
+            print('ERROR getting connectivity of point ' + PointName)
+        if NumberItems == 2 and ObjectTypes[0] == 2 and ObjectTypes[1] == 2:
+            [ret, Frame1Section, SAuto] = SapModel.FrameObj.GetSection(ObjectNames[0])
+            [ret, Frame2Section, SAuto] = SapModel.FrameObj.GetSection(ObjectNames[1])
+            if Frame1Section == Frame2Section:
+                ret = SapModel.EditFrame.Join(ObjectNames[0], ObjectNames[1])
+                if ret == 0:
+                    NumOfFrameJoins += 1
+    print('Joined ' + str(NumOfFrameJoins) + ' members')
+
     # Save the file
     SapModel.File.Save(SaveLoc + '/Tower ' + str(TowerNum))
     #Analyse tower and print results to spreadsheet
     print('\nAnalyzing tower number ' + str(TowerNum))
     print('-------------------------')
     # Run analysis and get weight, displacement, and acceleration
+    # ret = SapModel.Analyze.SetSolverOption_1(0, 0, False)
     AllResults.append(run_analysis(SapModel))
     MaxAcc = AllResults[TowerNum-1][0][0]
     MaxDisp = AllResults[TowerNum-1][0][1]
