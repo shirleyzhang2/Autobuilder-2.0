@@ -445,6 +445,8 @@ def run_analysis(SapModel):
         z = round(z, 6)
         if z == z_max and (abs(x-x_min) == x_width/4 or abs(x-x_max) == x_width/4) and (abs(y-y_min) == y_width/4 or abs(y-y_max) == y_width/4):
             roof_node_names.append(node_name)
+        if len(roof_node_names) == 4:
+            break
     print('Roof nodes:', roof_node_names)
     # Set units to metres
     N_m_C = 10
@@ -545,48 +547,62 @@ def get_costs(max_acc, max_disp, footprint, weight, floor_masses, floor_heights)
     return annual_building_cost, annual_seismic_cost
 
 
-def write_to_excel(all_costs, all_results, save_loc):
-    print('Writing all results to Excel...')
-    filepath = save_loc + '/Results.xlsx'
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws['A2'].value = 'Tower #'
-    ws['B1'].value = 'GM1'
-    ws['B2'].value = 'Annual Building Cost + Annual Seismic Cost'
-    ws['C2'].value = 'Acceleration (g)'
-    ws['D2'].value = 'Displacement (mm)'
-    ws['E2'].value = 'Weight (lb)'
-    ws['F2'].value = 'Period (s)'
-    ws['G2'].value = 'Base Shear (N)'
-    ws['H2'].value = 'Annual Building Cost'
-    ws['I2'].value = 'Annual Seismic Cost'
-    ws['J1'].value = 'GM2'
-    ws['J2'].value = 'Acceleration (g)'
-    ws['K2'].value = 'Displacement (mm)'
-    ws['L2'].value = 'Weight (lb)'
-    ws['M2'].value = 'Period (s)'
-    ws['N2'].value = 'Base Shear (N)'
-
-    for tower_num in range(1, len(all_costs)+1):
+def write_to_excel(wb_results, filepath, all_costs, all_results, tower_num = None):
+    print('Writing results to Excel...')
+    ws = wb_results.active
+    if ws['A2'].value == None:
+        ws['A2'].value = 'Tower #'
+        ws['B1'].value = 'GM1'
+        ws['B2'].value = 'Annual Building Cost + Annual Seismic Cost'
+        ws['C2'].value = 'Acceleration (g)'
+        ws['D2'].value = 'Displacement (mm)'
+        ws['E2'].value = 'Weight (lb)'
+        ws['F2'].value = 'Period (s)'
+        ws['G2'].value = 'Base Shear (N)'
+        ws['H2'].value = 'Annual Building Cost'
+        ws['I2'].value = 'Annual Seismic Cost'
+        ws['J1'].value = 'GM2'
+        ws['J2'].value = 'Acceleration (g)'
+        ws['K2'].value = 'Displacement (mm)'
+        ws['L2'].value = 'Weight (lb)'
+        ws['M2'].value = 'Period (s)'
+        ws['N2'].value = 'Base Shear (N)'
+    if tower_num == None: # Then write results for all towers
+        for tower_num in range(1, len(all_costs)+1):
+            ws['A' + str(tower_num + 2)].value = tower_num
+            # Write GM1 results
+            ws['B' + str(tower_num + 2)].value = sum(all_costs[tower_num - 1]) # annual bldg cost + annual seismic cost
+            ws['C' + str(tower_num + 2)].value = all_results[tower_num - 1][0][0] # acceleration
+            ws['D' + str(tower_num + 2)].value = all_results[tower_num - 1][0][1] # displacement
+            ws['E' + str(tower_num + 2)].value = all_results[tower_num - 1][0][2] # weight
+            ws['F' + str(tower_num + 2)].value = all_results[tower_num - 1][0][3] # period
+            ws['G' + str(tower_num + 2)].value = all_results[tower_num - 1][0][4] # base shear
+            ws['H' + str(tower_num + 2)].value = all_costs[tower_num - 1][0] # annual bldg cost
+            ws['I' + str(tower_num + 2)].value = all_costs[tower_num - 1][1] # seismic cost
+            # Write GM2 results
+            ws['J' + str(tower_num + 2)].value = all_results[tower_num - 1][1][0] # acceleration
+            ws['K' + str(tower_num + 2)].value = all_results[tower_num - 1][1][1] # displacement
+            ws['L' + str(tower_num + 2)].value = all_results[tower_num - 1][1][2] # weight
+            ws['M' + str(tower_num + 2)].value = all_results[tower_num - 1][1][3] # period
+            ws['N' + str(tower_num + 2)].value = all_results[tower_num - 1][1][4] # base shear
+    else:
         ws['A' + str(tower_num + 2)].value = tower_num
         # Write GM1 results
-        ws['B' + str(tower_num + 2)].value = sum(all_costs[tower_num - 1]) # annual bldg cost + annual seismic cost
-        ws['C' + str(tower_num + 2)].value = all_results[tower_num - 1][0][0] # acceleration
-        ws['D' + str(tower_num + 2)].value = all_results[tower_num - 1][0][1] # displacement
-        ws['E' + str(tower_num + 2)].value = all_results[tower_num - 1][0][2] # weight
-        ws['F' + str(tower_num + 2)].value = all_results[tower_num - 1][0][3] # period
-        ws['G' + str(tower_num + 2)].value = all_results[tower_num - 1][0][4] # base shear
-        ws['H' + str(tower_num + 2)].value = all_costs[tower_num - 1][0] # annual bldg cost
-        ws['I' + str(tower_num + 2)].value = all_costs[tower_num - 1][1] # seismic cost
+        ws['B' + str(tower_num + 2)].value = sum(all_costs[tower_num - 1])  # annual bldg cost + annual seismic cost
+        ws['C' + str(tower_num + 2)].value = all_results[tower_num - 1][0][0]  # acceleration
+        ws['D' + str(tower_num + 2)].value = all_results[tower_num - 1][0][1]  # displacement
+        ws['E' + str(tower_num + 2)].value = all_results[tower_num - 1][0][2]  # weight
+        ws['F' + str(tower_num + 2)].value = all_results[tower_num - 1][0][3]  # period
+        ws['G' + str(tower_num + 2)].value = all_results[tower_num - 1][0][4]  # base shear
+        ws['H' + str(tower_num + 2)].value = all_costs[tower_num - 1][0]  # annual bldg cost
+        ws['I' + str(tower_num + 2)].value = all_costs[tower_num - 1][1]  # seismic cost
         # Write GM2 results
-        ws['J' + str(tower_num + 2)].value = all_results[tower_num - 1][1][0] # acceleration
-        ws['K' + str(tower_num + 2)].value = all_results[tower_num - 1][1][1] # displacement
-        ws['L' + str(tower_num + 2)].value = all_results[tower_num - 1][1][2] # weight
-        ws['M' + str(tower_num + 2)].value = all_results[tower_num - 1][1][3] # period
-        ws['N' + str(tower_num + 2)].value = all_results[tower_num - 1][1][4] # base shear
-    wb.save(filepath)
-
-
+        ws['J' + str(tower_num + 2)].value = all_results[tower_num - 1][1][0]  # acceleration
+        ws['K' + str(tower_num + 2)].value = all_results[tower_num - 1][1][1]  # displacement
+        ws['L' + str(tower_num + 2)].value = all_results[tower_num - 1][1][2]  # weight
+        ws['M' + str(tower_num + 2)].value = all_results[tower_num - 1][1][3]  # period
+        ws['N' + str(tower_num + 2)].value = all_results[tower_num - 1][1][4]  # base shear
+    wb_results.save(filepath)
 
 
 #----START-----------------------------------------------------START----------------------------------------------------#
@@ -599,7 +615,7 @@ print('--------------------------------------------------------\n')
 
 #Read in the excel workbook
 print("\nReading Excel spreadsheet...")
-wb = load_workbook(r"C:\Users\kotab\OneDrive - University of Toronto\Autobuilder 2.0\Test 2019-12-30\L-shape 2019-12-29 (TEST).xlsm", data_only=True)
+wb = load_workbook(r"C:\Users\kotab\OneDrive - University of Toronto\Autobuilder 2.0\Runs 2019-12-30\Stiff Base 2019-12-30 (KOTA1).xlsm", data_only=True)
 ExcelIndex = ReadExcel.get_excel_indices(wb, 'A', 'B', 2)
 
 # Sections = ReadExcel.get_properties(wb,ExcelIndex,'Section')
@@ -614,7 +630,7 @@ SaveLoc = ExcelIndex['Save location']
 TimeHistoryLoc1 = ExcelIndex['Time history location 1']
 TimeHistoryLoc2 = ExcelIndex['Time history location 2']
 
-model_loc = r"C:\Users\kotab\OneDrive - University of Toronto\Autobuilder 2.0\L shape 2019-12-29\L shape - NoRigid (COMPUTE 1).sdb"
+model_loc = r"C:\Users\kotab\Documents\Seismic\Autobuilder Run Jan 1, 2020\Stiff Base.sdb"
 
 print('\nInitializing SAP2000 model...')
 # create SAP2000 object
@@ -719,6 +735,11 @@ plt.grid(True)
 
 plt.show(block=False)
 
+# Initialize results spreadsheet
+Filepath = SaveLoc + '/Results.xlsx'
+WbResults = openpyxl.Workbook()
+WbResults.save(Filepath)
+
 # Build all towers defined in spreadsheet
 LastTower = None
 MembersAddedLast = []
@@ -778,6 +799,7 @@ for Tower in AllTowers:
     # Set base nodes to fixed
     SapModel = set_base_restraints(SapModel)
 
+    '''
     # Join frame members if they are collinear and have the same section property. Prevents SAP2000 from indicating the model as unstable
     # !!!!!!WARNING!!!!!! This does not check whether joints have masses assigned to them (SAP API is dumb and it's not working for some reason).
     # Make sure that all nodes with masses have more than one frame member attached
@@ -803,6 +825,7 @@ for Tower in AllTowers:
                 if ret == 0:
                     NumOfFrameJoins += 1
     print('Joined ' + str(NumOfFrameJoins) + ' members')
+    '''
 
     # Save the file
     SapModel.File.Save(SaveLoc + '/Tower ' + str(TowerNum))
@@ -815,11 +838,13 @@ for Tower in AllTowers:
     MaxAcc = AllResults[TowerNum-1][0][0]
     MaxDisp = AllResults[TowerNum-1][0][1]
     Weight = AllResults[TowerNum-1][0][2]
-    #Calculate model cost
+    # Calculate model cost
     Footprint = 144
     TotalHeight = [60] # inches
     TotalMass = [7.83] # kg
     AllCosts.append(get_costs(MaxAcc, MaxDisp, Footprint, Weight, TotalMass, TotalHeight))
+    # Write results to Excel spreadsheet
+    write_to_excel(WbResults, Filepath, AllCosts, AllResults, TowerNum)
     # Unlock model
     SapModel.SetModelIsLocked(False)
 
@@ -878,8 +903,6 @@ for Tower in AllTowers:
 
 print('\n\nFinished constructing all towers.')
 
-# Write all results to excel spreadsheet
-write_to_excel(AllCosts, AllResults, SaveLoc)
 # Close SAP2000
 print('Closing SAP2000...')
 SapObject.ApplicationExit(False)
